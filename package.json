@@ -1,0 +1,15 @@
+{
+  "name": "red-and-black",
+  "version": "0.1.0",
+  "description": "Red & Black - Strategic Bluffing Card Duel - game engine prototype",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.4",
+    "express": "^5.2.1"
+  }
+}

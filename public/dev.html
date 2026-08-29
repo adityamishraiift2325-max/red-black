@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red &amp; Black — Game Inspector</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="dev.css">
+</head>
+<body class="dev">
+
+<header class="topbar">
+  <div class="brand"><span class="brand-red">RED</span> &amp; <span class="brand-black">BLACK</span></div>
+  <span class="dev-tag">Inspector</span>
+  <div class="meta">
+    <a href="/" class="link">← back to game</a>
+  </div>
+</header>
+
+<div class="dev-wrap">
+  <!-- game index -->
+  <aside class="dev-list">
+    <div class="dev-list-head">
+      <h2>Games</h2>
+      <button class="ghost small" id="reloadBtn">Reload</button>
+    </div>
+    <ul id="games"></ul>
+  </aside>
+
+  <!-- detail -->
+  <main class="dev-detail" id="detail">
+    <div class="placeholder">Select a game to inspect its full record.</div>
+  </main>
+</div>
+
+<script src="dev.js"></script>
+</body>
+</html>

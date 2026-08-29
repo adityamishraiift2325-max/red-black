@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Local database file (production uses Turso)
+data/
+
+# Secrets — never commit these. .env.local holds live Turso credentials.
+.env
+.env.*
+!.env.example
+
+# Vercel CLI project link
+.vercel
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log

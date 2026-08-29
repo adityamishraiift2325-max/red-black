@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red &amp; Black</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="brand-red">RED</span> &amp; <span class="brand-black">BLACK</span></div>
+  <!-- No seat switcher. Identity is fixed by the seat token held in this
+       browser, so a player literally cannot view the other side. -->
+  <div class="identity" id="identity" hidden>
+    <span class="who"><span class="avatar you" id="youAvatar"></span><b id="youName">—</b>
+      <span class="tag">you</span></span>
+    <span class="vs">vs</span>
+    <span class="who"><span class="avatar opp" id="oppAvatar"></span><b id="oppName">—</b></span>
+    <span class="locked" title="Your seat is locked to this browser — you can never see your opponent's hand">🔒</span>
+  </div>
+  <div class="meta" id="meta"></div>
+</header>
+
+<!-- ── Lobby ─────────────────────────────────────────────── -->
+<main id="lobby" class="lobby">
+  <div class="lobby-card">
+    <h1>A Strategic Bluffing Card Duel</h1>
+    <p class="rules">
+      Red (♥&nbsp;♦) is <b>Offense</b>. Black (♠&nbsp;♣) is <b>Defense</b>.
+      Build your hand over at least three preparation turns, then attack —
+      if your offense total beats their defense total you win instantly. If not, you lose.
+    </p>
+    <div class="lobby-actions">
+      <button class="primary big" id="newGameBtn">Create a game</button>
+      <div class="or">or</div>
+      <div class="join-row">
+        <input id="joinCode" class="code-input" maxlength="36" autocomplete="off"
+               placeholder="Enter room code" aria-label="Room code">
+        <button class="ghost" id="joinBtn">Join</button>
+      </div>
+      <p class="hint-sm">Create a game, then share the room code with your opponent.</p>
+    </div>
+  </div>
+</main>
+
+<!-- ── Name drawer ───────────────────────────────────────── -->
+<div class="drawer-scrim" id="nameDrawer" hidden>
+  <div class="drawer">
+    <h2 id="drawerTitle">What should we call you?</h2>
+    <p class="drawer-sub" id="drawerSub">Your opponent will see this name.</p>
+    <input id="nameInput" class="name-input" maxlength="24" autocomplete="off"
+           placeholder="Your name" aria-label="Your name">
+    <div class="drawer-actions">
+      <button class="ghost" id="nameCancel">Cancel</button>
+      <button class="primary" id="nameGo">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Waiting room ──────────────────────────────────────── -->
+<div class="overlay" id="waitRoom" hidden>
+  <div class="wait-card">
+    <h2>Waiting for your opponent</h2>
+    <p class="drawer-sub">Share this room code — they enter it to join you.</p>
+    <div class="code-display" id="roomCode">------</div>
+    <button class="ghost" id="copyCode">Copy code</button>
+    <div class="wait-players" id="waitPlayers"></div>
+    <div class="spinner"></div>
+    <button class="ghost small" id="waitCancel">Leave</button>
+  </div>
+</div>
+
+<!-- ── Table ─────────────────────────────────────────────── -->
+<main id="table" class="table" hidden>
+
+  <!-- No opponent card row: their cards are never visible, so rendering six
+       identical backs only implied information that does not exist. -->
+  <section class="opp-strip">
+    <span class="dot"></span>
+    <span>Opponent <b class="seat-tag" id="oppSeat"></b></span>
+    <span class="sep">·</span>
+    <span><b id="oppCount">6</b> cards in hand</span>
+    <span class="sep">·</span>
+    <span id="oppPrep"></span>
+    <span class="hidden-note" id="oppTurnNote"></span>
+  </section>
+
+  <section class="middle">
+    <div class="deck-info">
+      <div class="pile"><span id="deckCount">0</span><small>deck</small></div>
+      <div class="prep" id="prepInfo"></div>
+    </div>
+    <div class="prompt" id="prompt">Loading…</div>
+    <div class="actions" id="actions"></div>
+    <div class="selection" id="selection" hidden></div>
+  </section>
+
+  <section class="side you">
+    <div class="side-head">
+      <h2>Your hand <span class="seat-tag" id="youSeat"></span></h2>
+      <div class="totals" id="youTotals"></div>
+    </div>
+    <div class="hand" id="youHand"></div>
+    <button class="ghost" id="revealBtn">Click to see your cards</button>
+  </section>
+
+  <aside class="feed">
+    <h3>Game log</h3>
+    <ul id="feed"></ul>
+    <button class="ghost small" id="backBtn">Leave table</button>
+  </aside>
+</main>
+
+<!-- ── Attack confirmation ───────────────────────────────── -->
+<!-- An in-page dialog, not window.confirm(): native dialogs are silently
+     suppressed in embedded/sandboxed contexts and just return false. -->
+<div class="overlay" id="attackConfirm" hidden>
+  <div class="confirm-card">
+    <h2>Declare an attack?</h2>
+    <p class="confirm-sub">This resolves the game immediately — win or lose.</p>
+    <div class="tally">
+      <div class="tally-side">
+        <span class="tally-label">Your offense</span>
+        <span class="tally-num off" id="acOff">0</span>
+      </div>
+      <div class="tally-vs">vs</div>
+      <div class="tally-side">
+        <span class="tally-label">Their defense</span>
+        <span class="tally-num unknown">?</span>
+      </div>
+    </div>
+    <div class="verdict blind">
+      You are committing blind. You do not know their defense total —
+      you need <b>strictly more</b> than it, and a tie loses.
+    </div>
+    <div class="confirm-actions">
+      <button class="ghost" id="acCancel">Cancel</button>
+      <button class="danger" id="acGo">⚔ Attack</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Result overlay ────────────────────────────────────── -->
+<div class="overlay" id="overlay" hidden>
+  <div class="result-card wide">
+    <div class="result-title" id="resultTitle"></div>
+    <div class="result-detail" id="resultDetail"></div>
+
+    <!-- Safe to disclose now: the game is over. -->
+    <div class="showdown" id="showdown"></div>
+    <div class="reveal-block">
+      <div class="reveal-label">What they were holding</div>
+      <div class="hand small" id="oppRevealHand"></div>
+      <div class="reveal-totals" id="oppRevealTotals"></div>
+    </div>
+
+    <div class="result-actions">
+      <button class="ghost" id="reviewBtn">Review log</button>
+      <button class="primary" id="againBtn">New game</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

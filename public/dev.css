@@ -1,0 +1,93 @@
+/* Developer inspector — denser and plainer than the game table. */
+
+body.dev { background: #0c1512; }
+.dev-tag {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+  background: var(--warn); color: #241a06; padding: 3px 9px; border-radius: 999px; font-weight: 800;
+}
+.link { color: var(--gold); text-decoration: none; font-size: 13px; }
+.link:hover { text-decoration: underline; }
+
+.dev-wrap { display: grid; grid-template-columns: 320px 1fr; gap: 16px; padding: 16px; align-items: start; }
+
+.dev-list {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px; position: sticky; top: 78px; max-height: calc(100vh - 96px); overflow-y: auto;
+}
+.dev-list-head { display: flex; align-items: center; margin-bottom: 10px; }
+.dev-list-head h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.dev-list-head button { margin-left: auto; }
+.dev-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.dev-list li {
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; cursor: pointer;
+  font-size: 12px; transition: all .12s;
+}
+.dev-list li:hover { border-color: var(--gold); }
+.dev-list li.active { background: rgba(212,166,65,.14); border-color: var(--gold); }
+.dev-list .gid { font-family: ui-monospace, monospace; font-weight: 700; color: var(--text); }
+.dev-list .row2 { display: flex; gap: 8px; margin-top: 5px; color: var(--muted); flex-wrap: wrap; }
+.pill { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,.07); }
+.pill.finished { background: rgba(78,168,122,.22); color: #8fdcb0; }
+.pill.preparing { background: rgba(212,166,65,.2); color: var(--gold); }
+.pill.awaiting_resolution { background: rgba(217,128,50,.22); color: #f0a86a; }
+
+.dev-detail {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px;
+  min-height: 60vh;
+  /* Grid items default to min-width:auto, so a wide table would stretch the
+     whole page. This lets the column shrink and scroll its own content. */
+  min-width: 0;
+}
+.dev-list { min-width: 0; }
+.placeholder { color: var(--muted); text-align: center; padding: 80px 20px; font-style: italic; }
+
+.dev-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.dev-head h1 { margin: 0; font-size: 17px; font-family: ui-monospace, monospace; }
+.dev-head .spacer { margin-left: auto; }
+
+/* Wide tables scroll inside their own section, never the page body. */
+.sec { margin-bottom: 26px; min-width: 0; overflow-x: auto; }
+.sec > h3 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted);
+  margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line);
+}
+
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.kv div { background: rgba(255,255,255,.04); border-radius: 8px; padding: 9px 11px; }
+.kv .k { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.kv .v { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+table.grid { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.grid th {
+  text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted); padding: 7px 9px; border-bottom: 1px solid var(--line); font-weight: 600;
+}
+table.grid td { padding: 8px 9px; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: top; }
+table.grid tr:hover td { background: rgba(255,255,255,.03); }
+table.grid .seat0 { color: #9fc4d8; font-weight: 700; }
+table.grid .seat1 { color: #f0b878; font-weight: 700; }
+.act { font-family: ui-monospace, monospace; font-size: 11px; padding: 2px 7px; border-radius: 5px; background: rgba(255,255,255,.07); }
+.act.attack { background: rgba(200,60,74,.25); color: #ef8f9b; }
+.act.challenge { background: rgba(212,166,65,.2); color: var(--gold); }
+.act.swap { background: rgba(120,140,220,.2); color: #a8b6ee; }
+
+.cid { font-family: ui-monospace, monospace; font-weight: 700; }
+.cid.red { color: #ff8a97; }
+.cid.black { color: #cfd8d2; }
+.muted { color: var(--muted); }
+.hidden-card { color: var(--warn); }
+
+.ok-badge { color: #8fdcb0; font-weight: 700; }
+.bad-badge { color: #ef8f9b; font-weight: 700; }
+
+pre.raw {
+  background: #06100d; border: 1px solid var(--line); border-radius: 9px;
+  padding: 14px; overflow-x: auto; font-size: 11.5px; line-height: 1.55;
+  max-height: 420px; overflow-y: auto; color: #b8ccc2;
+}
+details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+
+@media (max-width: 900px) {
+  .dev-wrap { grid-template-columns: 1fr; }
+  .dev-list { position: static; max-height: 260px; }
+}
