@@ -61,6 +61,17 @@ Includes a **full copy pass** — every prompt, button label, empty state and
 error message replaced with the signed-off wording. The current strings were
 written ad hoc as each feature landed, so they don't sound like one product.
 
+**Also in scope: split `app.js` into real modules.** Confirmed 2026-08-29.
+Native ES modules (`<script type="module">`, real `import`/`export`) — not a
+framework, no build step. `app.js` is 571 lines and single-file; this phase
+already touches every screen for the restyle + copy pass, so splitting the
+file structure at the same time means editing each screen once, not twice.
+Rough seams: `api.js` (fetch wrapper), `state.js`, `cards.js` (rendering),
+`actions.js` (turn actions + the busy loader), `dialogs.js` (drawer, attack
+confirm, result overlay), `main.js` (wiring). Also serves phases 4 and 5
+directly — a Joker colour-picker prompt and a player-log viewer are real new
+UI surfaces, easier to add as new modules than as more functions in one file.
+
 Two additions that came out of the copy review and are now in scope here:
 - **Round-cap warning at turn 7** ("One turn left to fix your hand… after
   this you both attack at once, whether you're ready or not"). Being forced

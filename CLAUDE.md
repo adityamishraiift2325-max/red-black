@@ -183,7 +183,32 @@ exists, gating the admin namespace behind it is the natural next step. Don't
 silently "fix" this by adding ad-hoc checks — track it as a real feature. See
 `docs/DECISIONS.md` § Player-log vs admin-log segregation.
 
-## 12. Track the build backlog; surface it when it changes, not on schedule
+## 12. Design forward for the whole backlog, not just the current phase
+
+When a phase touches the DB schema or the architecture, keep the *rest* of
+`docs/BACKLOG.md` in mind while shaping it — not to build those items early,
+but so landing one doesn't force a breaking change when a later one arrives.
+Concrete, not abstract — the actual connections in this backlog right now:
+
+- **Round cap's dual-attack resolution and Joker's open question** ("how
+  does colour commitment work in a resolution with no single declaring
+  player") are the same structural problem. Shape the round-cap resolution
+  code with that in mind, even though Joker is two phases away.
+- **The turn-tracking added for the new-card highlight (phase 1) is very
+  likely the same data phase 4's player log needs** ("how did your hand
+  change over the game"). Design it once, as something phase 4 can read
+  directly, rather than building two separate turn-history mechanisms that
+  drift apart.
+- **The ES-module split (phase 2) exists partly for phases 4 and 5** — a
+  color-picker prompt (Joker) and a log viewer (player log) are real new UI
+  surfaces, much easier to add as new modules than as more functions crammed
+  into one file.
+
+If a phase's natural implementation would make a later, already-queued item
+harder or require a migration to undo, that's worth a line in the
+scope-confirmation from standard #8 — not a silent decision either way.
+
+## 13. Track the build backlog; surface it when it changes, not on schedule
 
 `docs/BACKLOG.md` holds what's confirmed-and-queued to build vs. already
 shipped. Update it whenever an item is added, resolved, or moves in/out of
