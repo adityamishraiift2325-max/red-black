@@ -33,6 +33,19 @@
   </main>
 </div>
 
+<!-- Client errors — frontend failures reported live by the browser.
+     See CLAUDE.md standard #4: a toast fading after a few seconds is not a
+     reporting mechanism. This is. -->
+<div class="dev-wrap" style="margin-top:0">
+  <div class="dev-list" style="grid-column: 1 / -1; position: static; max-height: none;">
+    <div class="dev-list-head">
+      <h2>Client errors <span class="pill" id="ceCount">0</span></h2>
+      <button class="ghost small" id="ceReload">Reload</button>
+    </div>
+    <div id="clientErrors" style="overflow-x:auto"></div>
+  </div>
+</div>
+
 <script src="dev.js"></script>
 </body>
 </html>

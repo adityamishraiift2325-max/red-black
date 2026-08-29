@@ -286,6 +286,25 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS idx_events_game ON events(game_id, seq);
 
+-- Frontend failures, reported by the browser itself. A toast that disappears
+-- after a few seconds is not a reporting mechanism — nothing durable was
+-- capturing what actually went wrong for a player. game_id/seat are nullable
+-- because a failure can happen before either exists (e.g. a failed join).
+CREATE TABLE IF NOT EXISTS client_errors (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id    TEXT,
+    seat       INTEGER CHECK (seat IS NULL OR seat IN (0,1)),
+    context    TEXT,              -- what the player was doing: 'burn', 'join', 'unhandled', ...
+    message    TEXT NOT NULL,
+    stack      TEXT,
+    url        TEXT,
+    user_agent TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_client_errors_game ON client_errors(game_id);
+CREATE INDEX IF NOT EXISTS idx_client_errors_created ON client_errors(created_at);
+
 
 -- ===========================================================================
 -- VIEWS

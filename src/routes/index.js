@@ -5,13 +5,19 @@ const express = require('express');
 const GameController = require('../controllers/GameController');
 const ChallengeController = require('../controllers/ChallengeController');
 const DebugController = require('../controllers/DebugController');
+const ClientErrorController = require('../controllers/ClientErrorController');
 
 const router = express.Router();
+
+// ---- client error reporting (public — see CLAUDE.md standard #4) ---------
+router.post('/client-errors', ClientErrorController.report);
 
 // ---- developer inspection (UNREDACTED — not for player clients) -----------
 router.get('/debug/games', DebugController.list);
 router.get('/debug/games/:id', DebugController.dump);
 router.get('/debug/games/:id/export', DebugController.exportJson);
+router.get('/debug/client-errors', ClientErrorController.list);
+router.get('/debug/games/:id/client-errors', ClientErrorController.forGame);
 
 // ---- lobby: the game id IS the room --------------------------------------
 router.post('/games', GameController.create);            // host creates + is seated

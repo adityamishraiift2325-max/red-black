@@ -171,8 +171,42 @@ async function showGame(id) {
   `;
 }
 
+/* ── client errors ────────────────────────────────────── */
+function timeAgo(iso) {
+  const s = Math.max(0, Math.round((Date.now() - new Date(iso + 'Z')) / 1000));
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.round(s / 60) + 'm ago';
+  return Math.round(s / 3600) + 'h ago';
+}
+
+async function loadClientErrors() {
+  const box = $('clientErrors');
+  let rows;
+  try { rows = await api('/debug/client-errors?limit=100'); }
+  catch (e) { box.innerHTML = `<div class="placeholder">${esc(e.message)}</div>`; return; }
+
+  $('ceCount').textContent = rows.length;
+  if (!rows.length) { box.innerHTML = '<div class="muted" style="padding:8px">No client errors reported. Good sign.</div>'; return; }
+
+  box.innerHTML = `<table class="grid">
+    <tr><th>When</th><th>Context</th><th>Game</th><th>Seat</th><th>Message</th><th>Page</th></tr>
+    ${rows.map((r) => `<tr>
+      <td class="muted" title="${esc(r.created_at)}">${timeAgo(r.created_at)}</td>
+      <td><span class="act">${esc(r.context || 'unspecified')}</span></td>
+      <td class="muted" style="font-family:ui-monospace,monospace">${r.game_id ? esc(r.game_id.slice(0, 8)) : '—'}</td>
+      <td>${r.seat === null ? '<span class="muted">—</span>' : seat(r.seat)}</td>
+      <td>${esc(r.message)}</td>
+      <td class="muted" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.url || '')}">${esc((r.url || '').replace(/^https?:\/\/[^/]+/, ''))}</td>
+    </tr>`).join('')}
+  </table>`;
+}
+
+$('ceReload').onclick = loadClientErrors;
+
 $('reloadBtn').onclick = loadList;
 loadList();
+loadClientErrors();
+setInterval(loadClientErrors, 15000);
 
 // Deep link: /dev.html#<gameId>
 if (location.hash.length > 1) {

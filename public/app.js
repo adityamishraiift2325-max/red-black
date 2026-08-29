@@ -58,6 +58,29 @@ function toast(msg) {
   toast._t = setTimeout(() => { t.hidden = true; }, 3800);
 }
 
+/* A toast is ephemeral — nothing durable was capturing what actually went
+   wrong once it faded. Every user-visible failure also gets reported here so
+   it's inspectable later in /dev.html, not just glimpsed by the player.
+   Fire-and-forget: reporting a failure must never itself throw or block. */
+function reportClientError(context, err) {
+  try {
+    const payload = JSON.stringify({
+      gameId: state.gameId, seat: state.seat, context,
+      message: (err && err.message) || String(err),
+      stack: err && err.stack,
+      url: location.href,
+    });
+    fetch(API + '/client-errors', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload,
+    }).catch(() => {});
+  } catch { /* never let error reporting become a new error */ }
+}
+
+// Catches failures the app's own try/catch never sees at all.
+window.addEventListener('error', (e) => reportClientError('window.onerror', e.error || e.message));
+window.addEventListener('unhandledrejection', (e) =>
+  reportClientError('unhandledrejection', e.reason));
+
 const initials = (n) => (n || '?').trim().slice(0, 2).toUpperCase();
 
 /* ── cards ────────────────────────────────────────────── */
@@ -346,7 +369,7 @@ async function act(fn) {
     state.mode = null;
     state.chosen = null;
     await refresh();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(e.message); reportClientError('action:' + (state.mode || 'unknown'), e); }
 }
 
 async function refresh() {
@@ -420,7 +443,7 @@ $('newGameBtn').onclick = async () => {
     state.revealed = false;
     saveSession();
     showWaitRoom(g.joinCode);
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(e.message); reportClientError('create-game', e); }
 };
 
 $('joinBtn').onclick = async () => {
@@ -436,7 +459,7 @@ $('joinBtn').onclick = async () => {
     state.revealed = false;
     saveSession();
     await enterTable();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(e.message); reportClientError('join-game', e); }
 };
 
 $('joinCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('joinBtn').click(); });
