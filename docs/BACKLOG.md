@@ -12,13 +12,18 @@ holds *what's queued to build*.
 
 ---
 
-## 0. Awaiting a decision before anything else
+## Decided — no open questions blocking the queue
 
-**Pick a visual direction.** Four table skins built as working slices of the
-real screen — Neon Arcade, Deco Parlour, Ink & Press, Dusk Velvet — published
-as an artifact for review. The choice gates nothing technically (all four map
-onto the same existing components), but picking before doing UI work avoids
-building the same screens twice.
+**Visual direction: Dusk Velvet.** Chosen 2026-08-29 from four candidates
+(Neon Arcade, Deco Parlour, Ink & Press, Dusk Velvet). Plum-to-black ground,
+apricot accent `#E2B78A`, rose `#E8698A`, Fraunces display over Karla body,
+pill buttons, 12–20px radii.
+
+**Copy: approved as drafted.** All fourteen screen states reviewed and signed
+off — voice, wording and tone. Build to the drafted strings rather than
+re-inventing them; the reference artifact holds every line in context. Voice
+rules: name people not seats · say what happened then what it means · never
+narrate the machinery · tension not jokes.
 
 ---
 
@@ -47,14 +52,23 @@ These three ship together as one batch.
 
 ## 2. Visual redesign — apply the chosen direction
 
-Restyle the existing screens in the picked direction (Dusk Velvet, pending
-final confirmation). Not a rebuild: the components, structure and state
-machine all stay: this replaces the token layer (`public/styles.css`
-custom properties, type, radii, spacing) and rewrites user-facing copy.
+Restyle the existing screens in **Dusk Velvet** (confirmed). Not a rebuild:
+components, structure and the state machine all stay — this replaces the
+token layer (`public/styles.css` custom properties, type, radii, spacing)
+and swaps in the approved copy.
 
 Includes a **full copy pass** — every prompt, button label, empty state and
-error message rewritten in a consistent voice. Currently the strings were
+error message replaced with the signed-off wording. The current strings were
 written ad hoc as each feature landed, so they don't sound like one product.
+
+Two additions that came out of the copy review and are now in scope here:
+- **Round-cap warning at turn 7** ("One turn left to fix your hand… after
+  this you both attack at once, whether you're ready or not"). Being forced
+  into an attack unannounced is a gotcha; the warning makes it a countdown.
+  Note this depends on item 1 existing first.
+- **The `?` on the attack dialog** — the opponent's defence shown as an
+  explicit unknown rather than omitted, making the hidden information a
+  visible shape at the decision point.
 
 Deliberately sequenced BEFORE mobile fixes: the redesign touches the same
 CSS the mobile fixes touch, so doing it after would mean editing those
