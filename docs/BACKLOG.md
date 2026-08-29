@@ -27,28 +27,7 @@ narrate the machinery · tension not jokes.
 
 ---
 
-## 1. Mobile rendering fixes
-
-Diagnosed against production, 2026-08-29 — real reproducible faults, not
-cosmetic preference:
-
-- **Overlays cannot scroll.** The end-of-game card is 612px tall. At 360×560
-  the *New game* button sits 17px below the fold, and `.overlay` is
-  `position:fixed` with `overflow:visible`, so scrolling cannot reach it —
-  the screen is a dead end. Affects `.overlay`, `#attackConfirm`,
-  `.drawer-scrim`. Fix: `overflow-y:auto` + `align-items:flex-start` +
-  `max-height:100dvh` on the scrim, `margin:auto 0` on the card.
-- **Top bar wraps to 110px** at 375px — brand, both names and room code all
-  share one flex row, eating a fifth of the screen before any game content.
-- **`100vh` vs. mobile browser chrome.** Everything sizes against the
-  expanded viewport; real usable height is smaller, which is what pushes
-  content off. Use `100dvh` with a `100vh` fallback.
-
-Deliberately kept separate from the skin choice: this is a layout fault that
-follows whichever direction is picked, so it should be fixed on its own terms
-rather than folded into a redesign.
-
-## 2. Player-facing end-of-game log
+## 1. Player-facing end-of-game log
 
 A curated personal history at game end — what cards *you* played, how *your*
 hand changed. Deliberately a new purpose-built read (seat-scoped via the
@@ -60,7 +39,7 @@ payloads. → `docs/DECISIONS.md` § Player-log vs admin-log segregation
 `OPEN`: does it include the opponent's public actions too (a two-player
 narrative naturally has two sides), or strictly the viewer's own moves?
 
-## 3. Jack is Joker
+## 2. Jack is Joker
 
 Wildcard colour/value mechanic, colour-selection prompt on the owner whenever
 a Joker is drawn into any action. Confirmed; 3 minor implementation-detail
@@ -68,7 +47,7 @@ assumptions flagged (do declarations persist across turns, is committing
 optional at attack time, how the round cap resolves Joker commitment with no
 single declaring player). → `docs/DECISIONS.md` § Jack is Joker
 
-## 4. Tips and tricks (post-game coaching)
+## 3. Tips and tricks (post-game coaching)
 
 "What could this player have done better." Still the least specified item —
 needs a real design pass before it's buildable: undefined what makes a
@@ -79,7 +58,7 @@ problem). No design work done yet.
 
 ## Blocked / needs more discussion
 
-*(nothing blocked — item 4 needs design, but nothing is waiting on an
+*(nothing blocked — item 3 needs design, but nothing is waiting on an
 external dependency)*
 
 ## Shipped
@@ -114,3 +93,15 @@ external dependency)*
   received the round-cap deploy despite an earlier note saying it had; both
   shipped together in one `vercel --prod` after full live verification of
   every screen state against a local dev server.
+- **Mobile rendering fixes** (`7277355`) — the three faults diagnosed
+  against production (overlay scroll dead-end, top bar wrap, `100vh` vs.
+  mobile chrome), plus 3 more the user found by screenshot: swap/burn/
+  challenge/giveback buttons rendering edge-to-edge with zero gap (no
+  `.selection-actions` container — see actions.js), and the card hand
+  leaving a dead strip of space on the right whenever a row broke mid-width
+  (`.hand` now a `repeat(auto-fill,minmax(74px,1fr))` grid instead of
+  flex-wrap). Live-verified at 375×812, the exact 360×560 case the backlog
+  cited (confirmed the previously-unreachable "Again" button is now
+  scrollable into view), and a synthetic 900px-container test confirming
+  desktop card sizing is unaffected. **Committed, not yet deployed** —
+  holding for the go-ahead.
