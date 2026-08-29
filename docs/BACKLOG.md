@@ -27,7 +27,41 @@ narrate the machinery · tension not jokes.
 
 ---
 
-## 1. Player-facing end-of-game log
+## 1. Attack-unlocked countdown + margin-first result screen
+
+Added 2026-08-29 from user feedback on the live mobile-fixes pass. Two
+separate screens, explicitly bundled into one phase by the user.
+
+**a) The cap countdown should start the moment attack unlocks, not just when
+it's close.** Right now `renderCapWarning()` (`actions.js`) only shows the
+strip once `turnsUntilCap <= 3`. The user wants it visible from the instant
+`canAttack` becomes true — which is inherently 5 turns before the cap
+(`MAX_PREP_TURNS(8) - REQUIRED_PREP_TURNS(3) = 5`), framed as "N chances
+left to attack before both hands are forced open," not a countdown that
+appears out of nowhere partway through. Concretely: swap the `<= 3`
+threshold for "whenever `v.canAttack` is true" (derive the interval from the
+same constants the engine already uses, not a hardcoded `5`, so it can't
+drift if `MAX_PREP_TURNS` ever changes). `ASSUMPTION`: the wording scales
+across the whole 5→1 range rather than switching registers partway (today's
+"close" vs. "last turn" split) — worth confirming the exact copy before
+building, not inventing it mid-build.
+
+**b) Result screen should lead with the comparative claim and the margin,
+not the raw totals.** Today's showdown box gives the two raw numbers (e.g.
+"68" / "40") the most prominent typography on the screen; the user wants the
+*margin* to carry that prominence instead — "You had the better hand — by
+28" rather than two big totals a player has to subtract themselves. No
+backend work needed: `finalReveal.attack.margin` (declared attacks) and
+`finalReveal.attack.roundCap.netMargin` (round cap) are already in the API
+payload, unused by the client. Client-only change: `showResult()` in
+`dialogs.js` — lead with which stat won it ("better offense" for a declared
+attack the attacker won, "better hand" for round cap, "better defense" for a
+declared attack the defender held), make the margin number the visually
+dominant one, and demote the two raw totals to a secondary/supporting role
+rather than removing them (a bluffing game's post-mortem should still let a
+player see the actual numbers if they want them).
+
+## 2. Player-facing end-of-game log
 
 A curated personal history at game end — what cards *you* played, how *your*
 hand changed. Deliberately a new purpose-built read (seat-scoped via the
@@ -39,7 +73,7 @@ payloads. → `docs/DECISIONS.md` § Player-log vs admin-log segregation
 `OPEN`: does it include the opponent's public actions too (a two-player
 narrative naturally has two sides), or strictly the viewer's own moves?
 
-## 2. Jack is Joker
+## 3. Jack is Joker
 
 Wildcard colour/value mechanic, colour-selection prompt on the owner whenever
 a Joker is drawn into any action. Confirmed; 3 minor implementation-detail
@@ -47,7 +81,7 @@ assumptions flagged (do declarations persist across turns, is committing
 optional at attack time, how the round cap resolves Joker commitment with no
 single declaring player). → `docs/DECISIONS.md` § Jack is Joker
 
-## 3. Tips and tricks (post-game coaching)
+## 4. Tips and tricks (post-game coaching)
 
 "What could this player have done better." Still the least specified item —
 needs a real design pass before it's buildable: undefined what makes a
@@ -58,7 +92,7 @@ problem). No design work done yet.
 
 ## Blocked / needs more discussion
 
-*(nothing blocked — item 3 needs design, but nothing is waiting on an
+*(nothing blocked — item 4 needs design, but nothing is waiting on an
 external dependency)*
 
 ## Shipped
