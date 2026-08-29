@@ -3,7 +3,7 @@
 
 const repo = require('../db/gameRepo');
 const engine = require('../engine/gameEngine');
-const { ValidationError } = require('./errors');
+const { ValidationError, ConflictError } = require('./errors');
 
 function cleanName(name, fallback) {
     const n = String(name || '').trim().slice(0, 24);
@@ -18,12 +18,25 @@ async function createGame({ hostName } = {}) {
     return { ...res, hostName: name, startingSeat: state.currentPlayer };
 }
 
+/**
+ * Claims the open seat — OR, if both seats are already taken and the given
+ * name matches whoever holds one of them, reclaims it. That's the entire
+ * no-accounts recovery path: the room code plus the name you used before
+ * gets you back into your own game after a lost connection, a back-button
+ * navigation, or a different device. See docs/DECISIONS.md.
+ */
 async function joinGame({ code, playerName }) {
     if (!code) throw new ValidationError('A game id or join code is required.');
     const name = cleanName(playerName, 'Player 2');
     const res = await repo.joinGame(String(code).trim(), name);
     if (res.error === 'not_found') throw new ValidationError('No game found with that code.');
-    if (res.error === 'full')      throw new ValidationError('That game already has two players.');
+    if (res.error === 'seat_active') {
+        throw new ConflictError(
+            `That seat is still active. If this is you reconnecting, wait ` +
+            `${res.retryAfterSeconds}s and try again.`
+        );
+    }
+    if (res.error === 'full') throw new ValidationError('That game already has two players.');
     return { ...res, playerName: name };
 }
 

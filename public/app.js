@@ -46,7 +46,17 @@ async function api(method, path, body, auth = true) {
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    // .status distinguishes "this token is genuinely dead" (401) from a
+    // transient failure (network blip, 500) — the resume-on-load flow below
+    // must only ever destroy the saved session on the former. Destroying it
+    // on ANY error is exactly what locked a real player out of their own
+    // game after a back-button navigation (2026-08-29).
+    const err = new Error(data.error || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.code = data.code;
+    throw err;
+  }
   return data;
 }
 
@@ -506,7 +516,14 @@ $('againBtn').onclick = () => {
   $('backBtn').click();
 };
 
-/* Resume an interrupted session on refresh. */
+/* Resume an interrupted session on refresh, a browser-back navigation, or
+   simply reopening the tab. This used to wipe the saved session on ANY
+   error here — including a plain network blip — which is exactly what
+   locked a real player out permanently after a back-button press: the seat
+   stays occupied server-side forever, so re-joining just reports the room
+   "full," and there was no way back in. Only a genuine 401 (this token no
+   longer holds that seat — e.g. it was reclaimed elsewhere) means the
+   session is actually dead. Anything else should be retried, not destroyed. */
 (async () => {
   const s = loadSession();
   if (!s?.gameId || !s?.token) return;
@@ -515,5 +532,12 @@ $('againBtn').onclick = () => {
     const lob = await api('GET', `/games/${s.gameId}/lobby`, null, false);
     if (!lob.ready) { showWaitRoom(lob.joinCode); return; }
     await enterTable();
-  } catch { clearSession(); }
+  } catch (e) {
+    if (e.status === 401) {
+      clearSession();
+      state.gameId = state.token = state.seat = null;
+    } else {
+      toast('Could not reconnect — check your connection and reload.');
+    }
+  }
 })();

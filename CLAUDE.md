@@ -125,10 +125,34 @@ not prove the *deployed system* behaves right. Before calling anything done,
 hit the actual running server (locally or in prod) and check real behavior —
 including reading the server log, not just the response status.
 
-## 8. Decisions get written down at decision time
+## 8. Don't deploy on every message — batch, verify, wait for the go-ahead
+
+Building a feature and shipping it to the live URL are two different
+decisions. Default to: implement, test locally (unit tests + a real running
+instance per rule 7), and **stop there**. Collect changes across a few
+messages rather than pushing to production after each one. `git commit` is
+fine to do as you go — it's local and reversible. `npx vercel --prod` (which
+moves the live `red-and-black.vercel.app` alias) is not something to run
+unprompted; wait for an explicit "ship it" / "deploy this."
+
+If a preview is useful mid-development, `npx vercel` **without** `--prod`
+creates a throwaway preview URL without touching the production alias —
+prefer that over `--prod` when a live check is genuinely needed before the
+batch is ready.
+
+## 9. Decisions get written down at decision time
 
 `docs/DECISIONS.md` is the running record of confirmed and open rule
 questions, written as they're settled — not reconstructed from chat scrollback
 later. When a design discussion in chat lands on something concrete, it goes
 in that file before implementation starts, with open questions marked `OPEN`
 explicitly rather than silently assumed.
+
+## 10. Track the build backlog; surface it when it changes, not on schedule
+
+`docs/BACKLOG.md` holds what's confirmed-and-queued to build vs. already
+shipped. Update it whenever an item is added, resolved, or moves in/out of
+"blocked." Mention the current count/status back to the user when it changes
+materially — a new item became ready, a batch is worth shipping — not
+mechanically after every message. Always answer immediately if asked
+directly.

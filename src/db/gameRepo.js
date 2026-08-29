@@ -36,13 +36,20 @@ const SQL = {
                  finished_at=?, updated_at=datetime('now') WHERE id=?`,
     getGame: `SELECT * FROM games WHERE id=?`,
     getGameByCode: `SELECT * FROM games WHERE join_code=?`,
-    listGames: `SELECT id,join_code,status,current_seat,winner_seat,turn_no,created_at
-                FROM games ORDER BY created_at DESC LIMIT 50`,
+    // No public "list every game" query anymore — it leaked join_code, the
+    // room's password, to anyone who called it. Admin visibility is
+    // DebugService.listGames instead (separate, deliberately unauthenticated
+    // per the existing /api/debug/* policy, not exposed as /api/games).
 
     insertSeat: `INSERT INTO game_seats (game_id,seat,player_id,player_name,seat_token,joined_at)
                  VALUES (?,?,?,?,?,?)`,
     claimSeat: `UPDATE game_seats SET player_name=?, seat_token=?, joined_at=datetime('now')
                 WHERE game_id=? AND seat=? AND seat_token IS NULL`,
+    // Reclaim: same seat, same name, a FRESH token — the old one (wherever
+    // it's stranded) stops working the instant this runs, so only one
+    // browser ever holds a live token for a seat at a time.
+    reclaimSeat: `UPDATE game_seats SET seat_token=? WHERE game_id=? AND seat=?`,
+    touchSeat: `UPDATE game_seats SET last_seen_at=datetime('now') WHERE game_id=? AND seat_token=?`,
     updateSeatPrep: `UPDATE game_seats SET prep_turns_completed=? WHERE game_id=? AND seat=?`,
     getSeats: `SELECT * FROM game_seats WHERE game_id=? ORDER BY seat`,
     getSeatByToken: `SELECT * FROM game_seats WHERE game_id=? AND seat_token=?`,
@@ -159,6 +166,18 @@ async function createGame(state, { hostName, hostSeat = 0 }) {
  * Claims the open seat. Returns the joiner's seat and token, or throws if the
  * game is full or missing.
  */
+// A seat is reclaimable-by-name only once it has gone quiet this long. Well
+// above the client's 2.5s poll interval, so an active browser's last_seen_at
+// is always fresh and can never be reclaimed out from under it — only a
+// genuinely disconnected seat (closed tab, dead battery, lost storage after
+// a back-button navigation) becomes eligible. See docs/DECISIONS.md.
+const RECLAIM_IDLE_SECONDS = 20;
+
+function secondsSince(isoUtc) {
+    if (!isoUtc) return Infinity; // never seen a request from this seat -> treat as idle
+    return (Date.now() - new Date(isoUtc + 'Z').getTime()) / 1000;
+}
+
 async function joinGame(gameIdOrCode, playerName) {
     const game = await db.get(SQL.getGame, [gameIdOrCode])
         || await db.get(SQL.getGameByCode, [String(gameIdOrCode).toUpperCase()]);
@@ -166,27 +185,57 @@ async function joinGame(gameIdOrCode, playerName) {
 
     const seats = await db.all(SQL.getSeats, [game.id]);
     const open = seats.find((s) => s.seat_token === null);
-    if (!open) return { error: 'full' };
+
+    if (open) {
+        const token = newToken();
+        const res = await db.run(SQL.claimSeat, [playerName, token, game.id, open.seat]);
+        if (res.rowsAffected === 0) return { error: 'full' }; // lost the race to another joiner
+
+        // Both seats filled: the game may now begin.
+        await db.run(SQL.updateGame, [
+            'preparing', game.current_seat, game.winner_seat, game.turn_no, null, game.id,
+        ]);
+        const seq = (await db.get(SQL.nextSeq, [game.id])).n;
+        await db.run(SQL.insertEvent, [game.id, seq, 'player_joined', open.seat, 'public',
+            JSON.stringify({ name: playerName, seat: open.seat })]);
+
+        return { gameId: game.id, joinCode: game.join_code, seat: open.seat, token };
+    }
+
+    // No open seat. Is this the ORIGINAL occupant coming back — not a fresh
+    // player, but the same one, reconnecting from a browser that lost its
+    // token (a back-button navigation, cleared storage, a different device)?
+    // No accounts, no passwords: the room code plus the name they used
+    // before is the entire recovery mechanism, deliberately gated by
+    // RECLAIM_IDLE_SECONDS so it can only ever reclaim a silent seat.
+    const wanted = String(playerName || '').trim().toLowerCase();
+    const match = wanted && seats.find(
+        (s) => s.player_name && s.player_name.trim().toLowerCase() === wanted);
+    if (!match) return { error: 'full' };
+
+    const idleFor = secondsSince(match.last_seen_at);
+    if (idleFor < RECLAIM_IDLE_SECONDS) {
+        return { error: 'seat_active', retryAfterSeconds: Math.ceil(RECLAIM_IDLE_SECONDS - idleFor) };
+    }
 
     const token = newToken();
-    const res = await db.run(SQL.claimSeat, [playerName, token, game.id, open.seat]);
-    if (res.rowsAffected === 0) return { error: 'full' }; // lost the race
-
-    // Both seats filled: the game may now begin.
-    await db.run(SQL.updateGame, [
-        'preparing', game.current_seat, game.winner_seat, game.turn_no, null, game.id,
-    ]);
+    await db.run(SQL.reclaimSeat, [token, game.id, match.seat]);
     const seq = (await db.get(SQL.nextSeq, [game.id])).n;
-    await db.run(SQL.insertEvent, [game.id, seq, 'player_joined', open.seat, 'public',
-        JSON.stringify({ name: playerName, seat: open.seat })]);
+    await db.run(SQL.insertEvent, [game.id, seq, 'player_reclaimed', match.seat, 'public',
+        JSON.stringify({ name: match.player_name, seat: match.seat, idleForSeconds: Math.round(idleFor) })]);
 
-    return { gameId: game.id, joinCode: game.join_code, seat: open.seat, token };
+    return { gameId: game.id, joinCode: game.join_code, seat: match.seat, token, reclaimed: true };
 }
 
-/** Resolves a bearer token to its seat. This is the authorisation check. */
+/**
+ * Resolves a bearer token to its seat. This is the authorisation check.
+ * Also touches last_seen_at (fire-and-forget — must never slow down or fail
+ * the actual request) so the reclaim-idle-gate above reflects real presence.
+ */
 async function seatForToken(gameId, token) {
     if (!token) return null;
     const row = await db.get(SQL.getSeatByToken, [gameId, token]);
+    if (row) db.run(SQL.touchSeat, [gameId, token]).catch(() => {});
     return row ? row.seat : null;
 }
 
@@ -280,5 +329,4 @@ module.exports = {
     createGame, joinGame, seatForToken, getSeats, getGame, findGame,
     saveState, recordTurn, loadState,
     handToJson, jsonToHand, makeJoinCode,
-    listGames: () => db.all(SQL.listGames),
 };

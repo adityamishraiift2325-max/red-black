@@ -49,8 +49,6 @@ const lobby = handle(async (req, res) => {
     res.json(s);
 });
 
-const list = handle(async (req, res) => res.json(await ViewService.listGames()));
-
 /* ── seat-scoped reads (token required) ─────────────────────────────── */
 
 const getSeatView = handle(async (req, res) => {
@@ -104,7 +102,7 @@ const attack = handle(async (req, res) => {
 });
 
 module.exports = {
-    create, join, lobby, list,
+    create, join, lobby,
     getState, getSeatView, getHand, getLegalActions, getPending,
     getEvents, getTurns, getOpeningDeal, previewAttack,
     burn, swap, attack,

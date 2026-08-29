@@ -20,10 +20,12 @@ router.get('/debug/client-errors', ClientErrorController.list);
 router.get('/debug/games/:id/client-errors', ClientErrorController.forGame);
 
 // ---- lobby: the game id IS the room --------------------------------------
+// No public "list every game" route: the join_code is the room's password,
+// and a listing endpoint would defeat that by handing it out to anyone who
+// asks. Admin/monitoring visibility is /api/debug/games instead.
 router.post('/games', GameController.create);            // host creates + is seated
-router.post('/games/join', GameController.join);         // opponent claims the open seat
+router.post('/games/join', GameController.join);         // opponent claims the open seat (or reclaims it)
 router.get('/games/:id/lobby', GameController.lobby);    // pollable, no token needed
-router.get('/games', GameController.list);
 
 // ---- seat-scoped reads (token required) ----------------------------------
 router.get('/games/:id/me', GameController.getSeatView);

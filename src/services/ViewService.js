@@ -127,9 +127,7 @@ async function openingDeal(gameId) {
     return rows.map((r) => ({ seat: r.seat, cards: Object.keys(JSON.parse(r.hand_json)) }));
 }
 
-const listGames = () => repo.listGames();
-
 module.exports = {
     forSeat, lobbyStatus, fullState, handFor, legalActions, pending,
-    events, turns, openingDeal, listGames,
+    events, turns, openingDeal,
 };

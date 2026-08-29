@@ -74,12 +74,19 @@ CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
 -- when the seat is claimed and never leaves that player's browser. The API
 -- checks it before returning a hand, so one player physically cannot fetch
 -- the other's cards — locking the UI toggle alone would be cosmetic.
+-- last_seen_at is touched on every successfully authenticated request from
+-- this seat (see seatForToken). It has one job: gating the no-auth "reclaim
+-- my seat" path below — a seat is only reclaimable by name-match once it has
+-- gone quiet for a while, so a knowable room code + a guessable name can
+-- never kick an actively-playing player out mid-game, only step into a seat
+-- that's genuinely gone silent.
 CREATE TABLE IF NOT EXISTS game_seats (
     game_id              TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     seat                 INTEGER NOT NULL CHECK (seat IN (0,1)),
     player_id            TEXT REFERENCES players(id),
     player_name          TEXT,
     seat_token           TEXT,
+    last_seen_at         TEXT,
     prep_turns_completed INTEGER NOT NULL DEFAULT 0,   -- gates the attack action
     joined_at            TEXT,
     PRIMARY KEY (game_id, seat)
