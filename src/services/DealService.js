@@ -32,11 +32,15 @@ async function joinGame({ code, playerName }) {
     if (res.error === 'not_found') throw new ValidationError('No game found with that code.');
     if (res.error === 'seat_active') {
         throw new ConflictError(
-            `That seat is still active. If this is you reconnecting, wait ` +
+            `Someone's still playing that seat. If that someone is you, give it ` +
             `${res.retryAfterSeconds}s and try again.`
         );
     }
-    if (res.error === 'full') throw new ValidationError('That game already has two players.');
+    if (res.error === 'full') {
+        throw new ValidationError(
+            'That game already has two players. If you were one of them, use the same name you had.'
+        );
+    }
     return { ...res, playerName: name };
 }
 

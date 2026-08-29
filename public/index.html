@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Red &amp; Black</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Karla:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -25,21 +28,20 @@
 <!-- ── Lobby ─────────────────────────────────────────────── -->
 <main id="lobby" class="lobby">
   <div class="lobby-card">
-    <h1>A Strategic Bluffing Card Duel</h1>
+    <h1>A two-player bluffing duel.<br><span class="hl">One deck, six cards, one attack.</span></h1>
     <p class="rules">
-      Red (♥&nbsp;♦) is <b>Offense</b>. Black (♠&nbsp;♣) is <b>Defense</b>.
-      Build your hand over at least three preparation turns, then attack —
-      if your offense total beats their defense total you win instantly. If not, you lose.
+      Red is offence. Black is defence. Build a hand, then commit —
+      if your attack falls short, you lose on the spot.
     </p>
     <div class="lobby-actions">
-      <button class="primary big" id="newGameBtn">Create a game</button>
+      <button class="primary big" id="newGameBtn">Start a game</button>
       <div class="or">or</div>
       <div class="join-row">
         <input id="joinCode" class="code-input" maxlength="36" autocomplete="off"
                placeholder="Enter room code" aria-label="Room code">
         <button class="ghost" id="joinBtn">Join</button>
       </div>
-      <p class="hint-sm">Create a game, then share the room code with your opponent.</p>
+      <p class="hint-sm">Start a game, then share the room code with your opponent.</p>
     </div>
   </div>
 </main>
@@ -52,7 +54,7 @@
     <input id="nameInput" class="name-input" maxlength="24" autocomplete="off"
            placeholder="Your name" aria-label="Your name">
     <div class="drawer-actions">
-      <button class="ghost" id="nameCancel">Cancel</button>
+      <button class="ghost" id="nameCancel">Back</button>
       <button class="primary" id="nameGo">Continue</button>
     </div>
   </div>
@@ -61,8 +63,8 @@
 <!-- ── Waiting room ──────────────────────────────────────── -->
 <div class="overlay" id="waitRoom" hidden>
   <div class="wait-card">
-    <h2>Waiting for your opponent</h2>
-    <p class="drawer-sub">Share this room code — they enter it to join you.</p>
+    <h2>Nobody's here yet</h2>
+    <p class="drawer-sub">Send this code to whoever you're playing.</p>
     <div class="code-display" id="roomCode">------</div>
     <button class="ghost" id="copyCode">Copy code</button>
     <div class="wait-players" id="waitPlayers"></div>
@@ -84,6 +86,14 @@
     <span class="sep">·</span>
     <span id="oppPrep"></span>
     <span class="hidden-note" id="oppTurnNote"></span>
+  </section>
+
+  <!-- Round-cap countdown. Hidden by default (.show toggles it) — this is
+       noise for most of a game and should only appear once the cap is close.
+       See renderCapWarning() in actions.js. -->
+  <section class="cap-warning" id="capWarning">
+    <span class="cap-dot"></span>
+    <span id="capWarningText"></span>
   </section>
 
   <section class="middle">
@@ -116,8 +126,8 @@
      suppressed in embedded/sandboxed contexts and just return false. -->
 <div class="overlay" id="attackConfirm" hidden>
   <div class="confirm-card">
-    <h2>Declare an attack?</h2>
-    <p class="confirm-sub">This resolves the game immediately — win or lose.</p>
+    <h2>Commit to it?</h2>
+    <p class="confirm-sub">This ends the game right now — win or lose.</p>
     <div class="tally">
       <div class="tally-side">
         <span class="tally-label">Your offense</span>
@@ -134,7 +144,7 @@
       you need <b>strictly more</b> than it, and a tie loses.
     </div>
     <div class="confirm-actions">
-      <button class="ghost" id="acCancel">Cancel</button>
+      <button class="ghost" id="acCancel">Not yet</button>
       <button class="danger" id="acGo">⚔ Attack</button>
     </div>
   </div>
@@ -155,14 +165,14 @@
     </div>
 
     <div class="result-actions">
-      <button class="ghost" id="reviewBtn">Review log</button>
-      <button class="primary" id="againBtn">New game</button>
+      <button class="ghost" id="reviewBtn">See how it went</button>
+      <button class="primary" id="againBtn">Again</button>
     </div>
   </div>
 </div>
 
 <div class="toast" id="toast" hidden></div>
 
-<script src="app.js"></script>
+<script type="module" src="main.js"></script>
 </body>
 </html>
