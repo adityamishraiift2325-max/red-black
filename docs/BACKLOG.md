@@ -45,7 +45,22 @@ These three ship together as one batch.
   turn only" can be computed rather than guessed. Shown in all four mockups
   as the `NEW` tag.
 
-## 2. Mobile rendering fixes
+## 2. Visual redesign — apply the chosen direction
+
+Restyle the existing screens in the picked direction (Dusk Velvet, pending
+final confirmation). Not a rebuild: the components, structure and state
+machine all stay: this replaces the token layer (`public/styles.css`
+custom properties, type, radii, spacing) and rewrites user-facing copy.
+
+Includes a **full copy pass** — every prompt, button label, empty state and
+error message rewritten in a consistent voice. Currently the strings were
+written ad hoc as each feature landed, so they don't sound like one product.
+
+Deliberately sequenced BEFORE mobile fixes: the redesign touches the same
+CSS the mobile fixes touch, so doing it after would mean editing those
+rules twice.
+
+## 3. Mobile rendering fixes
 
 Diagnosed against production, 2026-08-29 — real reproducible faults, not
 cosmetic preference:
@@ -66,7 +81,7 @@ Deliberately kept separate from the skin choice: this is a layout fault that
 follows whichever direction is picked, so it should be fixed on its own terms
 rather than folded into a redesign.
 
-## 3. Player-facing end-of-game log
+## 4. Player-facing end-of-game log
 
 A curated personal history at game end — what cards *you* played, how *your*
 hand changed. Deliberately a new purpose-built read (seat-scoped via the
@@ -78,7 +93,7 @@ payloads. → `docs/DECISIONS.md` § Player-log vs admin-log segregation
 `OPEN`: does it include the opponent's public actions too (a two-player
 narrative naturally has two sides), or strictly the viewer's own moves?
 
-## 4. Jack is Joker
+## 5. Jack is Joker
 
 Wildcard colour/value mechanic, colour-selection prompt on the owner whenever
 a Joker is drawn into any action. Confirmed; 3 minor implementation-detail
@@ -86,7 +101,7 @@ assumptions flagged (do declarations persist across turns, is committing
 optional at attack time, how the round cap resolves Joker commitment with no
 single declaring player). → `docs/DECISIONS.md` § Jack is Joker
 
-## 5. Tips and tricks (post-game coaching)
+## 6. Tips and tricks (post-game coaching)
 
 "What could this player have done better." Still the least specified item —
 needs a real design pass before it's buildable: undefined what makes a
@@ -97,7 +112,7 @@ problem). No design work done yet.
 
 ## Blocked / needs more discussion
 
-*(nothing blocked — item 5 needs design, but nothing is waiting on an
+*(nothing blocked — item 6 needs design, but nothing is waiting on an
 external dependency)*
 
 ## Shipped
