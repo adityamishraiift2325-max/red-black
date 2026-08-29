@@ -12,6 +12,10 @@ data/
 # Vercel CLI project link
 .vercel
 
+# Business docs — never belongs in a public repo, unlike everything else
+# in docs/. Kept in the working tree for convenience, gitignored on purpose.
+docs/MONETIZATION-ideas.md
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
