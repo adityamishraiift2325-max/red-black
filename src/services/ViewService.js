@@ -6,11 +6,14 @@ const ChallengeService = require('./ChallengeService');
 
 /** The per-seat game view — what a player's screen renders from. */
 async function forSeat(gameId, seat) {
-    const game = await loadGame(gameId);
+    const [game, pendingChallenge] = await Promise.all([
+        loadGame(gameId),
+        ChallengeService.currentFor(gameId, Number(seat)),
+    ]);
     const s = Number(seat);
     const opp = game.opponentOf(s);
     const legal = game.legalActions(s);
-    const seats = await repo.getSeats(gameId);
+    const seats = game.seatRows;   // already loaded by loadGame
 
     return {
         gameId: game.id,
@@ -35,7 +38,7 @@ async function forSeat(gameId, seat) {
             ? 'Waiting for a second player to join.' : legal.reason,
         attackBlockedBy: legal.attackBlockedBy ?? null,
         deckCount: game.deckCount,
-        pendingChallenge: await ChallengeService.currentFor(gameId, s),
+        pendingChallenge,
         winnerSeat: game.winnerSeat,
         youWon: game.winnerSeat === null ? null : game.winnerSeat === s,
         finalReveal: game.isFinished() ? await finalRevealFor(gameId, game, s, opp) : null,

@@ -8,19 +8,31 @@ const { Game } = require('../models/Game');
 const { NotFoundError, IllegalMoveError, ValidationError, AppError } = require('./errors');
 const { Card } = require('../models/Card');
 
-/** Loads the Game aggregate (models), or throws 404. */
+/**
+ * Loads the Game aggregate (models), or throws 404.
+ *
+ * These five reads are independent, so they are issued in parallel. Run
+ * sequentially they cost five network round-trips to the database, which
+ * dominates response time when the function and the database are not in the
+ * same region.
+ */
 async function loadGame(gameId) {
-    const row = await repo.getGame(gameId);
+    const [row, seats, hands, piles, pendingRow] = await Promise.all([
+        repo.getGame(gameId),
+        repo.getSeats(gameId),
+        db.all(repo.SQL.getHands, [gameId]),
+        db.get(repo.SQL.getPiles, [gameId]),
+        db.get(repo.SQL.getPending, [gameId]),
+    ]);
     if (!row) throw new NotFoundError('Game');
-    const seats = await repo.getSeats(gameId);
-    const hands = await db.all(repo.SQL.getHands, [gameId]);
-    const piles = await db.get(repo.SQL.getPiles, [gameId]);
-    const pendingRow = await db.get(repo.SQL.getPending, [gameId]);
+
     const pending = pendingRow
         ? { ...JSON.parse(pendingRow.context_json), actorSeat: pendingRow.actor_seat,
             type: pendingRow.type, turnId: pendingRow.turn_id }
         : null;
-    return new Game({ row, seats, hands, piles, pending });
+    const game = new Game({ row, seats, hands, piles, pending });
+    game.seatRows = seats;   // so callers need not re-query
+    return game;
 }
 
 async function loadEngineState(gameId) {
