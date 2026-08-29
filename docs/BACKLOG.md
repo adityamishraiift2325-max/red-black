@@ -34,6 +34,12 @@ Built and tested 2026-08-29. 26/26 engine tests, 32/32 multiplayer checks,
 result screen. Committed (`56c290d`), **not yet deployed** — holding for the
 go-ahead per the batch-then-ship workflow.
 
+**Correction, found while shipping Phase 2 (2026-08-29):** this item was
+previously marked as deployed to production in status notes. Checked the
+live site directly before this deploy (per standard #7) and it was still
+serving the pre-Phase-1 `app.js`/`styles.css` — Phase 1 was never actually
+pushed. Both phases go out together in the same `vercel --prod` below.
+
 - **Round cap.** Fires automatically from `endTurn()`; compares total hand
   value; ties go to whoever didn't start. `startingPlayer` is now properly
   persisted (it wasn't before — written to the DB but never read back).
@@ -59,7 +65,18 @@ Turn-7 warning and cap countdown were added to the client **functionally
 only**, using existing styling — the polished warning-strip treatment from
 the mockups is Phase 2 scope, so it wasn't built twice.
 
-## 2. Visual redesign — apply the chosen direction
+## ✅ 2. Visual redesign — apply the chosen direction — SHIPPED to git, awaiting deploy
+
+Built and tested 2026-08-29. 26/26 engine tests (unchanged — this phase only
+touched the client and two DealService.js error strings), all six new ES
+modules syntax-checked, and a full live walkthrough against a local dev
+server: create/join, burn, challenge (declare → accept → giveback), attack
+confirm, a declared-attack result screen, and a forced round-cap result
+screen — every rendered string checked against the approved reference
+artifact word-for-word, and the Dusk Velvet CSS tokens confirmed actually
+computing in the browser (background, accent, pill radius, font-family), not
+just present in source. Committed (`f081a9a`), **not yet deployed** — going
+out together with item 1 (see its note above).
 
 Restyle the existing screens in **Dusk Velvet** (confirmed). Not a rebuild:
 components, structure and the state machine all stay — this replaces the
