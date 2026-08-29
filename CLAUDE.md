@@ -148,7 +148,22 @@ later. When a design discussion in chat lands on something concrete, it goes
 in that file before implementation starts, with open questions marked `OPEN`
 explicitly rather than silently assumed.
 
-## 10. Track the build backlog; surface it when it changes, not on schedule
+## 10. Player-facing views never expose internals; admin gating is deferred, not forgotten
+
+A player-facing view (the game screen, any player-visible log or history)
+shows only game *content* — cards, moves, outcomes. Never function or
+service names, table or column names, raw event payloads, or anything else
+that reveals how the system works internally. That belongs exclusively to
+the admin surface (`/dev.html`, `/api/debug/*`).
+
+That admin surface currently has **no authentication** — an accepted,
+explicit tradeoff for development speed, not an oversight. It stays
+unauthenticated until this project has real auth or user roles; when that
+exists, gating the admin namespace behind it is the natural next step. Don't
+silently "fix" this by adding ad-hoc checks — track it as a real feature. See
+`docs/DECISIONS.md` § Player-log vs admin-log segregation.
+
+## 11. Track the build backlog; surface it when it changes, not on schedule
 
 `docs/BACKLOG.md` holds what's confirmed-and-queued to build vs. already
 shipped. Update it whenever an item is added, resolved, or moves in/out of

@@ -136,3 +136,30 @@ anyone who called it, unused by the current client. Removed entirely; admin
 visibility remains via `/api/debug/games`.
 
 ---
+
+## Player-log vs admin-log segregation — 2026-08-29 (CONFIRMED)
+
+Two audiences, two views, and they must never merge:
+
+- **Player-facing** (the planned end-of-game log — see `docs/BACKLOG.md`):
+  their own cards played, their own hand's history over the game. Nothing
+  about *how* the game works internally — no function or service names, no
+  table or column names, no raw event payloads, no opponent detail beyond
+  what the rules already legitimately reveal at game end (the existing
+  `finalReveal`).
+- **Admin-facing** (`/dev.html`, `/api/debug/*`): everything, unredacted —
+  both hands, hidden challenge cards, the full event stream, deck-integrity
+  checks. This is the existing developer inspector and stays exactly as
+  broad as it already is.
+
+**The gap, stated plainly and deliberately not fixed right now:** `/dev.html`
+and `/api/debug/*` currently have **no authentication at all** — anyone with
+the URL sees the admin view, full stop. That was an accepted, explicit
+tradeoff for local development speed, not an oversight, and it stays that
+way until this project has real authentication or user roles. When that gets
+built, gating the admin namespace behind it is the natural place to close
+this — noted here so it isn't rediscovered as a surprise later. Until then,
+the only thing standing between a stranger and the admin view is not knowing
+the URL.
+
+---
