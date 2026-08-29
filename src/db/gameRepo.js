@@ -9,11 +9,27 @@ const { assertDeckIntegrity } = require('./integrity');
 
 /* ── hand <-> hand_json ─────────────────────────────────────────────── */
 
-function handToJson(cards, revealedIds = [], acquiredMap = {}) {
+/**
+ * `freshMap` is { cardId: how } for cards that arrived since this player last
+ * acted — the engine's freshCards.
+ *
+ * Note on `acquired`: it records how a card arrived only while it is still
+ * NEW. Once the highlight expires it resets to 'deal'. It is deliberately not
+ * a permanent provenance log — the events and turns tables already record
+ * every card movement exactly, and that is what the phase-4 player log should
+ * read. Keeping a second, weaker history here would just be a thing to drift.
+ */
+function handToJson(cards, revealedIds = [], freshMap = {}) {
     const revealed = new Set(revealedIds);
+    const fresh = freshMap || {};
     const out = {};
     cards.forEach((c, i) => {
-        out[c.id] = { slot: i + 1, revealed: revealed.has(c.id), acquired: acquiredMap[c.id] || 'deal' };
+        out[c.id] = {
+            slot: i + 1,
+            revealed: revealed.has(c.id),
+            isNew: Object.prototype.hasOwnProperty.call(fresh, c.id),
+            acquired: fresh[c.id] || 'deal',
+        };
     });
     return out;
 }
@@ -90,9 +106,16 @@ const SQL = {
     insertSwap: `INSERT INTO swaps (turn_id,game_id,initiator_seat,opponent_seat,declared_type,
                  initiator_card_id,opponent_card_id,initiator_fallback,opponent_fallback)
                  VALUES (?,?,?,?,?,?,?,?,?)`,
-    insertAttack: `INSERT INTO attacks (turn_id,game_id,attacker_seat,defender_seat,offense_total,
-                   defense_total,attacker_won,winner_seat,attacker_hand_json,defender_hand_json)
-                   VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    insertAttack: `INSERT INTO attacks (turn_id,game_id,resolution_kind,attacker_seat,defender_seat,
+                   offense_total,defense_total,attacker_won,winner_seat,
+                   attacker_hand_json,defender_hand_json)
+                   VALUES (?,?,'declared',?,?,?,?,?,?,?,?)`,
+    insertRoundCap: `INSERT INTO attacks (turn_id,game_id,resolution_kind,attacker_seat,defender_seat,
+                   offense_total,defense_total,attacker_won,winner_seat,
+                   seat0_total,seat1_total,net_margin,was_tie,
+                   attacker_hand_json,defender_hand_json)
+                   VALUES (?,?,'round_cap',?,?,?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(turn_id) DO NOTHING`,
 
     insertEvent: `INSERT INTO events (game_id,seq,event_type,actor_seat,visibility,payload_json)
                   VALUES (?,?,?,?,?,?)`,
@@ -253,8 +276,12 @@ async function saveState(tx, gameId, state, detail = {}) {
     const turnNo = state.prepTurnsCompleted[0] + state.prepTurnsCompleted[1];
 
     for (const seat of [0, 1]) {
+        // `acquired` comes straight from the engine's freshCards, which is the
+        // single source of truth for "how did this card get here". Before this,
+        // saveState accepted an acquired map that no service ever passed, so
+        // every card was silently recorded as 'deal' forever.
         const hj = JSON.stringify(
-            handToJson(state.hands[seat], state.revealed[seat], detail.acquired?.[seat]));
+            handToJson(state.hands[seat], state.revealed[seat], state.freshCards?.[seat]));
         await tx.run(SQL.updateHand, [hj, state.hands[seat].length, gameId, seat]);
         await tx.run(SQL.updateSeatPrep, [state.prepTurnsCompleted[seat], gameId, seat]);
         await tx.run(SQL.insertHandHistory, [gameId, turnNo, seat, hj]);
@@ -283,11 +310,41 @@ async function saveState(tx, gameId, state, detail = {}) {
         await tx.run(SQL.clearPending, [gameId]);
     }
 
-    const last = state.log[state.log.length - 1];
-    if (last) {
-        const seq = (await tx.get(SQL.nextSeq, [gameId])).n;
-        await tx.run(SQL.insertEvent, [gameId, seq, last.event, detail.seat ?? null,
-            'public', JSON.stringify(last)]);
+    // Persist EVERY event this action produced, not just the last one. A
+    // single action can append two: its own, plus round_cap_resolved when it
+    // happened to complete the final turn. Writing only the last would
+    // silently drop the action that caused it.
+    //
+    // The log is rebuilt 1:1 from the events table on load, so anything beyond
+    // the stored count is new. nextSeq is maxSeq+1, i.e. storedCount+1.
+    const nextSeq = (await tx.get(SQL.nextSeq, [gameId])).n;
+    const storedCount = nextSeq - 1;
+    const newEvents = state.log.slice(storedCount);
+
+    for (let i = 0; i < newEvents.length; i++) {
+        const ev = newEvents[i];
+        await tx.run(SQL.insertEvent, [gameId, storedCount + 1 + i, ev.event,
+            detail.seat ?? null, 'public', JSON.stringify(ev)]);
+
+        // The cap resolves inside endTurn, so ANY action can trigger it —
+        // recording it here rather than in a service is what guarantees no
+        // action path can end the game without leaving an attacks row.
+        if (ev.event === 'round_cap_resolved' && detail.turnId) {
+            const t0 = ev.totals[0], t1 = ev.totals[1];
+            await tx.run(SQL.insertRoundCap, [
+                detail.turnId, gameId,
+                // No one declared this; the seat that completed the final turn
+                // fills attacker_seat only to satisfy NOT NULL.
+                detail.seat ?? state.startingPlayer,
+                detail.seat === 0 ? 1 : 0,
+                t0.offense, t1.defense,
+                ev.winner === (detail.seat ?? state.startingPlayer) ? 1 : 0,
+                ev.winner,
+                t0.total, t1.total, t0.total - t1.total, ev.tie ? 1 : 0,
+                JSON.stringify(handToJson(state.hands[0], state.revealed[0], state.freshCards?.[0])),
+                JSON.stringify(handToJson(state.hands[1], state.revealed[1], state.freshCards?.[1])),
+            ]);
+        }
     }
 }
 
@@ -319,6 +376,16 @@ async function loadState(gameId) {
         revealed: [0, 1].map((i) =>
             Object.entries(JSON.parse(hands[i].hand_json))
                 .filter(([, m]) => m.revealed).map(([id]) => id)),
+        // Both of these MUST round-trip or they silently reset on every poll:
+        // freshCards would drop the highlight, and startingPlayer would break
+        // the round cap's tie-break (games.starting_seat is the only durable
+        // record of who moved first).
+        freshCards: [0, 1].map((i) =>
+            Object.fromEntries(
+                Object.entries(JSON.parse(hands[i].hand_json))
+                    .filter(([, m]) => m.isNew)
+                    .map(([id, m]) => [id, m.acquired]))),
+        startingPlayer: g.starting_seat,
         winner: g.winner_seat,
         log: events.map((e) => JSON.parse(e.payload_json)),
     };

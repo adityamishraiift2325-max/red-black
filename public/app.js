@@ -12,7 +12,6 @@ const state = {
   token: null,
   seat: null,
   view: null,
-  revealed: false,      // has the player clicked to look at their own hand?
   mode: null,           // null | 'burn' | 'swap' | 'challenge' | 'giveback'
   chosen: null,
   poll: null,
@@ -97,13 +96,13 @@ window.addEventListener('unhandledrejection', (e) =>
 const initials = (n) => (n || '?').trim().slice(0, 2).toUpperCase();
 
 /* ── cards ────────────────────────────────────────────── */
-function cardEl(card, { faceDown = false, pickable = false } = {}) {
+function cardEl(card, { faceDown = false, pickable = false, isNew = false } = {}) {
   const el = document.createElement('div');
   if (faceDown || !card || !card.id) { el.className = 'card back'; return el; }
   const rank = card.rank || card.id.slice(0, -1);
   const suit = card.suit || card.id.slice(-1);
   const isRed = suit === 'H' || suit === 'D';
-  el.className = `card ${isRed ? 'red' : 'black'}${pickable ? ' pick' : ''}`;
+  el.className = `card ${isRed ? 'red' : 'black'}${pickable ? ' pick' : ''}${isNew ? ' fresh' : ''}`;
   el.dataset.id = card.id;
   el.innerHTML =
     `<div class="r">${rank}<br>${SUIT[suit]}</div>` +
@@ -128,20 +127,21 @@ function renderHands() {
   document.querySelector('.opp-strip')
     .classList.toggle('their-turn', !v.yourTurn && v.status === 'preparing');
 
+  // Your own hand is always face up — seat isolation is enforced server-side
+  // (the opponent's view is redacted regardless), so hiding a player's cards
+  // from THEMSELVES was pure friction with no security value.
   const you = $('youHand');
   you.innerHTML = '';
   const pickable = state.mode !== null && state.mode !== 'swap';
   v.yourHand.forEach((c) => {
-    const el = cardEl(c, { faceDown: !state.revealed, pickable: pickable && state.revealed });
+    const el = cardEl(c, { pickable, isNew: c.isNew });
     if (state.chosen === c.id) el.classList.add('chosen');
     you.appendChild(el);
   });
   $('youSeat').textContent = v.yourName || `P${state.seat}`;
-  $('youTotals').innerHTML = state.revealed
-    ? `<span class="off">offense <b>${v.yourTotals.offense}</b></span> · ` +
-      `<span class="def">defense <b>${v.yourTotals.defense}</b></span>`
-    : '<span style="opacity:.6">hidden</span>';
-  $('revealBtn').textContent = state.revealed ? 'Hide my cards' : 'Click to see your cards';
+  $('youTotals').innerHTML =
+    `<span class="off">offense <b>${v.yourTotals.offense}</b></span> · ` +
+    `<span class="def">defense <b>${v.yourTotals.defense}</b></span>`;
 }
 
 function describePrompt() {
@@ -166,6 +166,13 @@ function describePrompt() {
     return '<span class="wait">Waiting on your opponent…</span>';
   }
   if (!v.yourTurn) return `<span class="wait">${v.opponentName}'s turn…</span>`;
+  // Functional warning only — the styled countdown strip from the redesign
+  // mockups is Phase 2 scope (docs/BACKLOG.md item 2); this just makes sure
+  // the information reaches the player correctly in the meantime.
+  if (v.isFinalPrepTurn) {
+    return 'Last chance to prepare — <span class="hl">after this you both attack at once</span>, ' +
+           'whether you\'re ready or not.';
+  }
   if (v.canAttack) return 'Your turn. You may now <span class="hl">attack</span> — or keep preparing.';
   return 'Your turn. Prepare your hand.';
 }
@@ -196,8 +203,7 @@ function renderActions() {
     sel.hidden = false;
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.textContent = !state.revealed ? 'Reveal your cards first, then pick one.'
-      : state.mode === 'burn' ? 'Pick a card to discard.'
+    hint.textContent = state.mode === 'burn' ? 'Pick a card to discard.'
       : state.mode === 'challenge' ? 'Pick the card to challenge with — it stays face down.'
       : 'Pick a card to hand over.';
     sel.appendChild(hint);
@@ -334,9 +340,17 @@ function render() {
   if (!v) return;
 
   $('deckCount').textContent = v.deckCount;
+  // Cap countdown only shown once it's near — otherwise it's noise for most
+  // of the game. <=3 turns left on EITHER side is close enough to matter.
+  // Deliberately shows both sides' counts rather than synthesizing one "in N
+  // turns" figure — turns alternate, so a single number would be misleading
+  // whenever it isn't currently your turn.
+  const capClose = v.turnsUntilCap && Math.min(v.turnsUntilCap.you, v.turnsUntilCap.opponent) <= 3;
   $('prepInfo').innerHTML =
     `Preparation turns<br>you <b>${v.prepTurns.you}</b>/3 · them <b>${v.prepTurns.opponent}</b>/3` +
-    (v.canAttack ? '<br><span style="color:var(--ok)">attack unlocked</span>' : '');
+    (v.canAttack ? '<br><span style="color:var(--ok)">attack unlocked</span>' : '') +
+    (capClose ? `<br><span style="color:var(--warn)">forced attack looming — ` +
+      `${v.turnsUntilCap.you} of your turns, ${v.turnsUntilCap.opponent} of theirs left</span>` : '');
   $('meta').textContent = `room ${v.joinCode || ''} · ${v.status}`;
   $('prompt').innerHTML = describePrompt();
 
@@ -362,20 +376,43 @@ function showResult(v) {
     return;
   }
   const a = r.attack;
-  $('resultDetail').innerHTML = a.youAttacked
-    ? (won ? 'Your attack broke through.' : 'Your attack fell short.')
-    : (won ? `${v.opponentName} attacked and failed.` : `${v.opponentName} attacked and broke through.`);
 
-  $('showdown').innerHTML =
-    `<div class="sd ${a.winnerSeat === a.attackerSeat ? 'winner' : ''}">
-       <div class="sd-label">${a.youAttacked ? 'Your' : 'Their'} offense</div>
-       <div class="sd-num off">${a.offenseTotal}</div><div class="sd-note">attacker</div>
-     </div>
-     <div class="sd ${a.winnerSeat !== a.attackerSeat ? 'winner' : ''}">
-       <div class="sd-label">${a.youAttacked ? 'Their' : 'Your'} defense</div>
-       <div class="sd-num def">${a.defenseTotal}</div>
-       <div class="sd-note">defender${a.offenseTotal === a.defenseTotal ? ' — tie holds' : ''}</div>
-     </div>`;
+  if (a.kind === 'round_cap') {
+    // No attacker here — both sides hit the 8-turn ceiling and were scored
+    // simultaneously. youAttacked is false for BOTH players in this case, so
+    // the declared-attack narration below would be wrong for everyone.
+    const rc = a.roundCap;
+    $('resultDetail').innerHTML = rc.wasTie
+      ? `Neither of you blinked — the tie broke to ${won ? 'you' : v.opponentName}.`
+      : (won ? `Neither of you attacked. Your hand held up better.`
+             : `Neither of you attacked. ${v.opponentName}'s hand held up better.`);
+
+    $('showdown').innerHTML =
+      `<div class="sd ${won ? 'winner' : ''}">
+         <div class="sd-label">Your total</div>
+         <div class="sd-num off">${rc.yourTotal}</div><div class="sd-note">offense + defense</div>
+       </div>
+       <div class="sd ${!won ? 'winner' : ''}">
+         <div class="sd-label">Their total</div>
+         <div class="sd-num def">${rc.theirTotal}</div>
+         <div class="sd-note">offense + defense${rc.wasTie ? ' — tie' : ''}</div>
+       </div>`;
+  } else {
+    $('resultDetail').innerHTML = a.youAttacked
+      ? (won ? 'Your attack broke through.' : 'Your attack fell short.')
+      : (won ? `${v.opponentName} attacked and failed.` : `${v.opponentName} attacked and broke through.`);
+
+    $('showdown').innerHTML =
+      `<div class="sd ${a.winnerSeat === a.attackerSeat ? 'winner' : ''}">
+         <div class="sd-label">${a.youAttacked ? 'Your' : 'Their'} offense</div>
+         <div class="sd-num off">${a.offenseTotal}</div><div class="sd-note">attacker</div>
+       </div>
+       <div class="sd ${a.winnerSeat !== a.attackerSeat ? 'winner' : ''}">
+         <div class="sd-label">${a.youAttacked ? 'Their' : 'Your'} defense</div>
+         <div class="sd-num def">${a.defenseTotal}</div>
+         <div class="sd-note">defender${a.offenseTotal === a.defenseTotal ? ' — tie holds' : ''}</div>
+       </div>`;
+  }
 
   const box = $('oppRevealHand');
   box.innerHTML = '';
@@ -478,7 +515,6 @@ $('newGameBtn').onclick = async () => {
     localStorage.setItem('redblack.name', name);
     const g = await api('POST', '/games', { name }, false);
     state.gameId = g.gameId; state.token = g.token; state.seat = g.seat;
-    state.revealed = false;
     saveSession();
     showWaitRoom(g.joinCode);
   } catch (e) { toast(e.message); reportClientError('create-game', e); }
@@ -494,7 +530,6 @@ $('joinBtn').onclick = async () => {
     localStorage.setItem('redblack.name', name);
     const g = await api('POST', '/games/join', { code, name }, false);
     state.gameId = g.gameId; state.token = g.token; state.seat = g.seat;
-    state.revealed = false;
     saveSession();
     await enterTable();
   } catch (e) { toast(e.message); reportClientError('join-game', e); }
@@ -520,7 +555,6 @@ $('waitCancel').onclick = () => {
   state.gameId = state.token = state.seat = null;
 };
 
-$('revealBtn').onclick = () => { state.revealed = !state.revealed; render(); };
 $('acCancel').onclick = closeAttackConfirm;
 $('acGo').onclick = () => {
   closeAttackConfirm();

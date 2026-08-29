@@ -5,7 +5,7 @@
 //   respond()  -> defender accepts or declines
 //   giveback() -> the winner returns a card of their choosing
 
-const { applyAction, assertCardId, repo, engine, db } = require('./GameContext');
+const { applyAction, assertCardId, findEvent, repo, engine, db } = require('./GameContext');
 const { Challenge, RESPONSE } = require('../models/Challenge');
 const { IllegalMoveError, NotFoundError } = require('./errors');
 
@@ -32,7 +32,12 @@ async function declare(gameId, seat, cardId) {
         (state) => engine.declareChallenge(state, seat, id),
         { action: 'challenge', seat, newTurn: 'challenge', turnStatus: 'open' },
         async ({ after: next, turnId: tid, tx }) => {
-            const ev = next.log[next.log.length - 1];
+            // declareChallenge never calls endTurn, so this is safe even
+            // without findEvent — kept consistent with the rest of this file
+            // anyway, so a future engine change can't silently reintroduce
+            // the round-cap bug that hit Burn/Swap.
+            const ev = findEvent(next.log, 'challenge_declared')
+                    || findEvent(next.log, 'challenge_auto_surrender');
             const requiredType = ev.requiredType;
             const cardType = requiredType === 'black' ? 'red' : 'black';
             await tx.run(Q.insert, [tid, gameId, seat,
@@ -45,7 +50,7 @@ async function declare(gameId, seat, cardId) {
         }
     );
 
-    const ev = after.log[after.log.length - 1];
+    const ev = findEvent(after.log, 'challenge_declared') || findEvent(after.log, 'challenge_auto_surrender');
     const auto = ev.event === 'challenge_auto_surrender';
     return {
         turnId, autoSurrendered: auto,
@@ -73,7 +78,10 @@ async function respond(gameId, seat, accept) {
         (state) => engine.respondToChallenge(state, seat, accept),
         { action: 'challenge_response', seat, turnId },
         async ({ after: next, tx }) => {
-            const ev = next.log[next.log.length - 1];
+            // respondToChallenge never calls endTurn either — safe, kept
+            // consistent for the same reason as declare() above.
+            const ev = findEvent(next.log, 'challenge_resolved')
+                    || findEvent(next.log, 'challenge_declined');
             if (accept) {
                 await tx.run(Q.respond, [RESPONSE.ACCEPTED, ev.defenderCard, ev.challengerValue,
                     ev.defenderValue, ev.tie ? 1 : 0, 1, ev.winner, ev.winner === 0 ? 1 : 0,
@@ -87,7 +95,7 @@ async function respond(gameId, seat, accept) {
         }
     );
 
-    const ev = after.log[after.log.length - 1];
+    const ev = findEvent(after.log, 'challenge_resolved') || findEvent(after.log, 'challenge_declined');
     return accept
         ? { turnId, response: 'accepted', challengerCard: ev.challengerCard,
             defenderCard: ev.defenderCard, challengerValue: ev.challengerValue,
@@ -118,8 +126,13 @@ async function giveback(gameId, seat, cardId) {
         }
     );
 
-    return { turnId, given: id, givenBySeat: seat,
-             nextSeat: after.currentPlayer, prepTurns: after.prepTurnsCompleted };
+    return {
+        turnId, given: id, givenBySeat: seat,
+        nextSeat: after.currentPlayer, prepTurns: after.prepTurnsCompleted,
+        // completeGiveback DOES call endTurn, so a giveback can be the action
+        // that completes the round cap.
+        roundCapResolved: after.phase === 'finished',
+    };
 }
 
 /* ── reads ──────────────────────────────────────────────────────────── */

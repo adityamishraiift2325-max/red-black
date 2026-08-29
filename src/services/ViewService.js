@@ -32,6 +32,13 @@ async function forSeat(gameId, seat) {
             defense: game.handOf(s).defenseTotal(),
         },
         prepTurns: { you: game.prepTurns[s], opponent: game.prepTurns[opp] },
+        // Round cap: drives the turn-7 warning so a forced resolution reads as
+        // a countdown rather than a gotcha.
+        turnsUntilCap: {
+            you: game.turnsUntilRoundCap()[s],
+            opponent: game.turnsUntilRoundCap()[opp],
+        },
+        isFinalPrepTurn: game.isFinalPrepTurn(s),
         canAttack: game.canAttack(),
         legalActions: game.status === 'lobby' ? [] : legal.actions,
         blockedReason: game.status === 'lobby'
@@ -56,11 +63,23 @@ async function finalRevealFor(gameId, game, seat, opp) {
         yourTotals: { offense: game.handOf(seat).offenseTotal(),
                       defense: game.handOf(seat).defenseTotal() },
         attack: atk ? {
+            kind: atk.resolution_kind || 'declared',
             attackerSeat: atk.attacker_seat, defenderSeat: atk.defender_seat,
             offenseTotal: atk.offense_total, defenseTotal: atk.defense_total,
-            youAttacked: atk.attacker_seat === seat,
+            // Only meaningful for a declared attack. On a round cap nobody
+            // attacked — the client must branch on `kind` and not narrate
+            // "you attacked" for a resolution the player never chose.
+            youAttacked: (atk.resolution_kind || 'declared') === 'declared'
+                && atk.attacker_seat === seat,
             winnerSeat: atk.winner_seat,
             margin: atk.offense_total - atk.defense_total,
+            // Round-cap detail: both sides' totals, oriented to this viewer.
+            roundCap: (atk.resolution_kind === 'round_cap') ? {
+                yourTotal: seat === 0 ? atk.seat0_total : atk.seat1_total,
+                theirTotal: seat === 0 ? atk.seat1_total : atk.seat0_total,
+                netMargin: seat === 0 ? atk.net_margin : -atk.net_margin,
+                wasTie: !!atk.was_tie,
+            } : null,
         } : null,
     };
 }

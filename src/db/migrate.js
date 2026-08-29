@@ -15,6 +15,18 @@ const { freshDeck } = require('../engine/cards');
 // explicit entry here — schema.sql alone is not enough for an existing DB.
 const COLUMN_MIGRATIONS = [
     { table: 'game_seats', column: 'last_seen_at', ddl: 'ALTER TABLE game_seats ADD COLUMN last_seen_at TEXT' },
+    // Round cap (phase 1). SQLite cannot add a CHECK constraint via ALTER, so
+    // resolution_kind is a plain TEXT here while a fresh DB gets the
+    // constrained version from schema.sql — the app only ever writes the two
+    // valid values, and back-filling existing rows to 'declared' is correct
+    // since every game that predates the cap ended by a declared attack.
+    { table: 'attacks', column: 'resolution_kind',
+      ddl: "ALTER TABLE attacks ADD COLUMN resolution_kind TEXT NOT NULL DEFAULT 'declared'" },
+    { table: 'attacks', column: 'seat0_total', ddl: 'ALTER TABLE attacks ADD COLUMN seat0_total INTEGER' },
+    { table: 'attacks', column: 'seat1_total', ddl: 'ALTER TABLE attacks ADD COLUMN seat1_total INTEGER' },
+    { table: 'attacks', column: 'net_margin', ddl: 'ALTER TABLE attacks ADD COLUMN net_margin INTEGER' },
+    { table: 'attacks', column: 'was_tie',
+      ddl: 'ALTER TABLE attacks ADD COLUMN was_tie INTEGER NOT NULL DEFAULT 0' },
 ];
 
 async function applyColumnMigrations() {

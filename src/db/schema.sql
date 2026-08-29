@@ -261,15 +261,32 @@ CREATE TABLE IF NOT EXISTS challenges (
 
 CREATE INDEX IF NOT EXISTS idx_challenges_game ON challenges(game_id);
 
+-- Terminal resolutions. Two kinds share this table because both end the game
+-- by comparing totals, and every consumer (result screen, inspector, future
+-- player log) wants them in one place:
+--
+--   'declared'  a player chose to attack. attacker/defender are meaningful.
+--   'round_cap' the 8-turn ceiling forced a simultaneous dual attack. Nobody
+--               declared it, so attacker_seat is the seat that completed the
+--               final turn and carries no strategic meaning — read
+--               net_margin and winner_seat instead.
 CREATE TABLE IF NOT EXISTS attacks (
     turn_id            INTEGER PRIMARY KEY REFERENCES turns(id) ON DELETE CASCADE,
     game_id            TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    resolution_kind    TEXT NOT NULL DEFAULT 'declared'
+                       CHECK (resolution_kind IN ('declared','round_cap')),
     attacker_seat      INTEGER NOT NULL CHECK (attacker_seat IN (0,1)),
     defender_seat      INTEGER NOT NULL CHECK (defender_seat IN (0,1)),
     offense_total      INTEGER NOT NULL,   -- sum of attacker's red cards
     defense_total      INTEGER NOT NULL,   -- sum of defender's black cards
     attacker_won       INTEGER NOT NULL,   -- strictly greater to win
     winner_seat        INTEGER NOT NULL CHECK (winner_seat IN (0,1)),
+    -- round_cap only: full both-sides detail, since a dual attack has no
+    -- single offense-vs-defense pair that describes the outcome.
+    seat0_total        INTEGER,
+    seat1_total        INTEGER,
+    net_margin         INTEGER,            -- seat0_total - seat1_total
+    was_tie            INTEGER NOT NULL DEFAULT 0,
     attacker_hand_json TEXT NOT NULL,
     defender_hand_json TEXT NOT NULL,
     created_at         TEXT NOT NULL DEFAULT (datetime('now'))

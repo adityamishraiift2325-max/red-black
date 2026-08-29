@@ -10,7 +10,7 @@ class Hand {
         this.entries = entries;
     }
 
-    /** Parse the hand_json column: { "KH": { slot, revealed, acquired } } */
+    /** Parse the hand_json column: { "KH": { slot, revealed, isNew, acquired } } */
     static fromJson(handJson) {
         const obj = typeof handJson === 'string' ? JSON.parse(handJson) : handJson;
         const entries = Object.entries(obj)
@@ -18,6 +18,7 @@ class Hand {
                 card: Card.fromId(id),
                 slot: meta.slot,
                 revealed: !!meta.revealed,
+                isNew: !!meta.isNew,
                 acquired: meta.acquired || 'deal',
             }))
             .sort((a, b) => a.slot - b.slot);
@@ -38,7 +39,7 @@ class Hand {
     toJson() {
         const out = {};
         for (const e of this.entries) {
-            out[e.card.id] = { slot: e.slot, revealed: e.revealed, acquired: e.acquired };
+            out[e.card.id] = { slot: e.slot, revealed: e.revealed, isNew: e.isNew, acquired: e.acquired };
         }
         return out;
     }
@@ -103,7 +104,7 @@ class Hand {
         return this.entries.map((e) => ({ slot: e.slot, id: null, faceUp: false }));
     }
 
-    /** The owner's own view: their full hand. */
+    /** The owner's own view: their full hand, including the new-card flag. */
     visible() {
         return this.entries.map((e) => ({
             slot: e.slot,
@@ -112,6 +113,7 @@ class Hand {
             suit: e.card.suit,
             value: e.card.value,
             type: e.card.type,
+            isNew: e.isNew,
             acquired: e.acquired,
         }));
     }

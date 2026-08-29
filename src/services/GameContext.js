@@ -110,8 +110,25 @@ async function applyAction(gameId, action, meta, afterSave) {
     });
 }
 
+/**
+ * Finds the event a service's own action produced, by NAME rather than by
+ * "the last thing in the log" — endTurn() can append a SECOND event
+ * (round_cap_resolved) after any action that completes the final prep turn,
+ * so `log[log.length - 1]` is not reliably the caller's own event. Every
+ * service must locate its event this way; blind last-index access is exactly
+ * the bug that silently broke burn/swap/giveback the day round cap shipped.
+ */
+function findEvent(log, eventName) {
+    // Search from the end: a service's own event is normally last or
+    // second-to-last, and this is cheap either way for a log this short.
+    for (let i = log.length - 1; i >= 0; i--) {
+        if (log[i].event === eventName) return log[i];
+    }
+    return null;
+}
+
 module.exports = {
-    loadGame, loadEngineState, applyAction,
+    loadGame, loadEngineState, applyAction, findEvent,
     assertSeat, assertCardId, resolveCallerSeat, assertGameReady,
     repo, engine, db,
 };

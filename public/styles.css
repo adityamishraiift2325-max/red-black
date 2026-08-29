@@ -236,10 +236,14 @@ button:disabled { opacity: .35; cursor: not-allowed; }
   border: 1px solid rgba(255,255,255,.2); border-radius: 5px;
 }
 
-.card.seen { outline: 2px solid var(--warn); outline-offset: 2px; }
-.card.seen::before {
-  content: "seen"; position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
-  background: var(--warn); color: #241a06; font-size: 9px; font-weight: 800;
+/* A card that just entered your hand (drawn, swapped in, taken or given in a
+   challenge) — stays marked until you take your OWN next action, so you never
+   have to re-scan your whole hand to spot what changed. See CLAUDE.md's
+   backlog notes on freshCards for the full lifecycle. */
+.card.fresh { outline: 2px solid var(--gold); outline-offset: 2px; }
+.card.fresh::before {
+  content: "new"; position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+  background: var(--gold); color: #241a06; font-size: 9px; font-weight: 800;
   padding: 1px 6px; border-radius: 999px; text-transform: uppercase; letter-spacing: .05em;
 }
 

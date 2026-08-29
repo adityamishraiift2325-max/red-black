@@ -12,6 +12,10 @@ const STATUS = {
 };
 
 const MIN_PREP_TURNS = 3;
+// Imported, not redeclared: the engine ENFORCES the cap, this model only
+// describes it for the UI. A second copy of the number could silently drift
+// and make the warning fire on the wrong turn.
+const { MAX_PREP_TURNS } = require('../engine/gameEngine');
 
 class Game {
     constructor({ row, seats, hands, piles, pending = null }) {
@@ -47,6 +51,23 @@ class Game {
 
     prepTurnsRemaining(seat) {
         return Math.max(0, this.minPrepTurns - this.prepTurns[seat]);
+    }
+
+    /**
+     * Turns each player has left before the 8-turn ceiling forces a
+     * simultaneous resolution. Drives the turn-7 warning — being forced into
+     * an attack unannounced would be a gotcha.
+     */
+    turnsUntilRoundCap() {
+        return [
+            Math.max(0, MAX_PREP_TURNS - this.prepTurns[0]),
+            Math.max(0, MAX_PREP_TURNS - this.prepTurns[1]),
+        ];
+    }
+
+    /** True on the last turn each player gets before the cap fires. */
+    isFinalPrepTurn(seat) {
+        return this.turnsUntilRoundCap()[seat] === 1;
     }
 
     /**

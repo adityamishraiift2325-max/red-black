@@ -16,6 +16,12 @@ const {
 const HAND_SIZE = 6;
 const MIN_PREP_TURNS = 3;
 
+// Hard ceiling on preparation. At MIN_PREP_TURNS an attack becomes *optional*;
+// at MAX_PREP_TURNS the game stops asking and settles itself — see
+// resolveRoundCap. Without this a game could stall indefinitely with neither
+// player willing to commit.
+const MAX_PREP_TURNS = 8;
+
 function clone(state) {
     return JSON.parse(JSON.stringify(state));
 }
@@ -37,11 +43,21 @@ function newGame(rng = Math.random) {
         hands,
         prepTurnsCompleted: [0, 0],
         currentPlayer: startingPlayer,
+        // Persisted separately from currentPlayer, which changes every turn.
+        // The round cap's tie-break needs to know who moved FIRST, and by the
+        // time a cap fires (16 turns in) currentPlayer tells you nothing about
+        // that. Restored from games.starting_seat on reload.
+        startingPlayer,
         phase: 'preparing', // preparing | finished
         pending: null, // holds in-progress multi-step actions (challenge resolution)
         // revealed[p] = ids of player p's cards the OPPONENT has seen.
         // Central to the bluffing layer: swaps are public, challenges expose cards.
         revealed: [[], []],
+        // freshCards[p] = { cardId: how } for cards that arrived in p's hand
+        // since p last acted. Drives the "new card" highlight, and is also the
+        // source for hand_json's `acquired` provenance — deliberately ONE
+        // mechanism rather than two that could disagree.
+        freshCards: [{}, {}],
         winner: null,
         log: [
             { event: 'game_started', startingPlayer },
@@ -83,12 +99,35 @@ function drawOne(state) {
     return state.deck.shift();
 }
 
+/**
+ * Records that `cardId` just arrived in `player`'s hand, and how.
+ * `how` is one of: draw | swap | challenge | giveback.
+ */
+function markFresh(state, player, cardId, how) {
+    state.freshCards[player][cardId] = how;
+}
+
+/**
+ * Clears `player`'s new-card highlights. Called at the START of that player's
+ * own action — the highlight's job is to survive from the moment a card lands
+ * until its owner next acts, so clearing at end-of-turn would wipe the very
+ * card the turn just produced.
+ */
+function clearFresh(state, player) {
+    state.freshCards[player] = {};
+}
+
 // A card only stays "known to the opponent" while it is still in that player's
 // hand — once it moves or is discarded, drop the stale knowledge.
 function pruneRevealed(state) {
     for (const p of [0, 1]) {
         const held = new Set(state.hands[p].map((c) => c.id));
         state.revealed[p] = [...new Set(state.revealed[p].filter((id) => held.has(id)))];
+        // Same staleness problem for freshness: a card marked new that then
+        // left the hand (swapped away, given back) must not keep a highlight.
+        for (const id of Object.keys(state.freshCards[p])) {
+            if (!held.has(id)) delete state.freshCards[p][id];
+        }
     }
 }
 
@@ -99,10 +138,84 @@ function endTurn(state, { countsAsPrepTurn = true } = {}) {
     pruneRevealed(state);
     state.pending = null;
     state.currentPlayer = other(state.currentPlayer);
+
+    // The cap fires as a consequence of the turn that completed it — nobody
+    // declares it. Checked here, at the single point every action funnels
+    // through, so no action can ever bypass it.
+    if (roundCapReached(state)) resolveRoundCap(state);
 }
 
 function canAttack(state) {
     return state.prepTurnsCompleted[0] >= MIN_PREP_TURNS && state.prepTurnsCompleted[1] >= MIN_PREP_TURNS;
+}
+
+function roundCapReached(state) {
+    return state.prepTurnsCompleted[0] >= MAX_PREP_TURNS
+        && state.prepTurnsCompleted[1] >= MAX_PREP_TURNS;
+}
+
+/** Turns each player has left before the cap forces a resolution. */
+function turnsUntilRoundCap(state) {
+    return [
+        Math.max(0, MAX_PREP_TURNS - state.prepTurnsCompleted[0]),
+        Math.max(0, MAX_PREP_TURNS - state.prepTurnsCompleted[1]),
+    ];
+}
+
+/**
+ * The forced dual attack. Both players attack and defend simultaneously, so
+ * each side's net is:
+ *
+ *   net(P) = (P.offense − opp.defense) + (P.defense − opp.offense)
+ *          = (P.offense + P.defense) − (opp.offense + opp.defense)
+ *
+ * The cross-terms cancel, so this reduces to comparing total hand value.
+ * Implemented that way deliberately — but the individual attack/defence
+ * margins are still recorded, because the UI narrates them ("you lost your
+ * attack by 4 but held your defence by 6") even though only the net decides.
+ *
+ * Ties go to the player who did NOT start: with no attacker and no defender
+ * there is no "defender wins ties" to apply, and moving second is the closest
+ * equivalent to being on the back foot.
+ *
+ * Mutates `state` — called from endTurn, which already owns a cloned state.
+ */
+function resolveRoundCap(state) {
+    const totals = [0, 1].map((p) => ({
+        offense: sumByType(state.hands[p], 'red'),
+        defense: sumByType(state.hands[p], 'black'),
+    }));
+    totals.forEach((t) => { t.total = t.offense + t.defense; });
+
+    const margins = [0, 1].map((p) => ({
+        attack: totals[p].offense - totals[other(p)].defense,
+        defence: totals[p].defense - totals[other(p)].offense,
+    }));
+
+    const tie = totals[0].total === totals[1].total;
+    const winner = tie
+        ? other(state.startingPlayer)
+        : (totals[0].total > totals[1].total ? 0 : 1);
+
+    state.phase = 'finished';
+    state.winner = winner;
+    state.pending = null;
+
+    state.log.push({
+        event: 'round_cap_resolved',
+        maxPrepTurns: MAX_PREP_TURNS,
+        totals: [
+            { seat: 0, offense: totals[0].offense, defense: totals[0].defense, total: totals[0].total },
+            { seat: 1, offense: totals[1].offense, defense: totals[1].defense, total: totals[1].total },
+        ],
+        margins: [
+            { seat: 0, attack: margins[0].attack, defence: margins[0].defence },
+            { seat: 1, attack: margins[1].attack, defence: margins[1].defence },
+        ],
+        tie,
+        startingPlayer: state.startingPlayer,
+        winner,
+    });
 }
 
 // ---- Action: Burn & Draw ----------------------------------------------
@@ -113,6 +226,8 @@ function burnAndDraw(inputState, player, discardCardId) {
     assertNoPending(state);
     assertPlayersTurn(state, player);
 
+    clearFresh(state, player); // this player is acting — last turn's highlight is spent
+
     const hand = state.hands[player];
     const discarded = removeCard(hand, discardCardId);
     if (!discarded) throw new GameError(`Card ${discardCardId} not found in player ${player}'s hand.`);
@@ -120,6 +235,7 @@ function burnAndDraw(inputState, player, discardCardId) {
     state.discard.push(discarded);
     const drawn = drawOne(state);
     hand.push(drawn);
+    markFresh(state, player, drawn.id, 'draw');
 
     state.log.push({ event: 'burn_draw', player, discarded: discarded.id, drawn: drawn.id });
     endTurn(state);
@@ -149,10 +265,18 @@ function executeSwap(inputState, player, myType, tieBreakId = null) {
     const theirs = highestOfTypeOrFallback(state.hands[opponent], theirType);
     if (!theirs.card) throw new GameError(`Player ${opponent} has no cards to swap.`);
 
+    clearFresh(state, player); // the initiator is acting
+
     removeCard(state.hands[player], mine.card.id);
     removeCard(state.hands[opponent], theirs.card.id);
     state.hands[player].push(theirs.card);
     state.hands[opponent].push(mine.card);
+
+    // Both sides gained a card. The opponent didn't act, so theirs stays
+    // highlighted until their own next turn — which is exactly when a forced
+    // swap is most disorienting and the highlight most useful.
+    markFresh(state, player, theirs.card.id, 'swap');
+    markFresh(state, opponent, mine.card.id, 'swap');
 
     // Swaps are public, so each card is known to its NEW owner's opponent.
     // (revealed[p] tracks cards in p's hand that p's opponent has seen.)
@@ -203,6 +327,11 @@ function declareChallenge(inputState, player, myCardId) {
     const challengerCard = findCard(state.hands[player], myCardId);
     if (!challengerCard) throw new GameError(`Card ${myCardId} not found in player ${player}'s hand.`);
 
+    // Only the challenger clears here. A challenge spans three calls but is
+    // ONE turn belonging to the challenger — the defender responding inside
+    // it is not their own turn, so their highlights must survive it.
+    clearFresh(state, player);
+
     const requiredType = oppositeType(challengerCard.type);
     const defenderBest = highestOfType(state.hands[defender], requiredType);
 
@@ -216,6 +345,7 @@ function declareChallenge(inputState, player, myCardId) {
         removeCard(state.hands[defender], surrendered.id);
         state.hands[player].push(surrendered);
         state.revealed[player].push(surrendered.id);
+        markFresh(state, player, surrendered.id, 'challenge');
 
         state.log.push({
             event: 'challenge_auto_surrender',
@@ -328,6 +458,7 @@ function respondToChallenge(inputState, player, accept) {
     removeCard(state.hands[loser], contested.id);
     state.hands[winner].push(contested);
     state.revealed[winner].push(contested.id);
+    markFresh(state, winner, contested.id, 'challenge');
 
     state.pending = {
         type: 'winner_giveback',
@@ -355,6 +486,7 @@ function completeGiveback(inputState, player, giveCardId) {
     if (!given) throw new GameError(`Card ${giveCardId} not found in player ${winner}'s hand.`);
     state.hands[loser].push(given);
     state.revealed[loser].push(given.id);
+    markFresh(state, loser, given.id, 'giveback');
 
     state.log.push({ event: 'giveback', winner, loser, given: given.id, outcome });
 
@@ -405,6 +537,10 @@ module.exports = {
     GameError,
     newGame,
     canAttack,
+    roundCapReached,
+    turnsUntilRoundCap,
+    resolveRoundCap,
+    MAX_PREP_TURNS,
     burnAndDraw,
     executeSwap,
     declareChallenge,

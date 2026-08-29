@@ -273,6 +273,139 @@ test('attack resolves: higher offense wins, ties go to the defender', () => {
     assert.strictEqual(tied.winner, defender, 'tie must favour the defender');
 });
 
+// ---- Round cap --------------------------------------------------------------
+
+/** A game one turn away from the cap, with hands fixed for a known outcome. */
+function atCapEdge({ p0, p1, startingPlayer = 0, seed = 7 }) {
+    const g = engine.newGame(seededRng(seed));
+    g.prepTurnsCompleted = [engine.MAX_PREP_TURNS, engine.MAX_PREP_TURNS - 1];
+    g.currentPlayer = 1;          // P1 completes the final turn
+    g.startingPlayer = startingPlayer;
+    g.hands[0] = p0;
+    g.hands[1] = p1;
+    return g;
+}
+
+test('round cap does NOT fire before both players reach the max', () => {
+    let g = engine.newGame(seededRng(11));
+    g.prepTurnsCompleted = [engine.MAX_PREP_TURNS, engine.MAX_PREP_TURNS - 2];
+    g.currentPlayer = 1;
+    g = engine.burnAndDraw(g, 1, g.hands[1][0].id);
+    assert.strictEqual(g.phase, 'preparing', 'game must continue at 8/7');
+    assert.ok(!g.log.some((e) => e.event === 'round_cap_resolved'));
+});
+
+test('round cap fires automatically once both reach the max, higher total wins', () => {
+    // P0 total 53 (22 off / 31 def) vs P1 total 51 (25 off / 26 def) -> P0.
+    // Taken from the worked example that defined this rule.
+    const g = atCapEdge({
+        p0: [makeCard('H', '10'), makeCard('D', '9'), makeCard('H', '3'),
+             makeCard('S', 'K'), makeCard('C', '10'), makeCard('S', '8')],
+        p1: [makeCard('D', 'K'), makeCard('H', '9'), makeCard('D', '3'),
+             makeCard('C', 'K'), makeCard('S', '9'), makeCard('C', '4')],
+    });
+    // Swap is 1-for-1 so totals stay intact; burn would replace a card.
+    const out = engine.executeSwap(g, 1, 'red');
+
+    const ev = out.log.find((e) => e.event === 'round_cap_resolved');
+    assert.ok(ev, 'cap must resolve without anyone declaring an attack');
+    assert.strictEqual(out.phase, 'finished');
+    assert.strictEqual(out.winner, ev.winner);
+    assert.strictEqual(ev.totals[0].total, ev.totals[0].offense + ev.totals[0].defense);
+    assert.strictEqual(ev.tie, false);
+    // Net is symmetric: whatever P0 nets, P1 nets the negative.
+    const net0 = ev.margins[0].attack + ev.margins[0].defence;
+    const net1 = ev.margins[1].attack + ev.margins[1].defence;
+    assert.strictEqual(net0, -net1, 'margins must be symmetric');
+    assert.strictEqual(net0 > 0, ev.winner === 0, 'positive net must mean a win');
+});
+
+test('round cap tie goes to the player who did NOT start', () => {
+    // Identical totals (both 30) — only the tie-break can decide.
+    const mk = () => [makeCard('H', '10'), makeCard('D', '5'), makeCard('S', '10'), makeCard('C', '5')];
+
+    for (const starter of [0, 1]) {
+        const g = atCapEdge({ p0: mk(), p1: mk(), startingPlayer: starter, seed: 19 });
+        const out = engine.executeSwap(g, 1, 'red');
+        const ev = out.log.find((e) => e.event === 'round_cap_resolved');
+        assert.strictEqual(ev.tie, true, 'totals should be equal');
+        assert.strictEqual(out.winner, starter === 0 ? 1 : 0,
+            `starter P${starter} must lose the tie`);
+    }
+});
+
+test('round cap resolution is terminal - no further actions allowed', () => {
+    const g = atCapEdge({
+        p0: [makeCard('H', 'K'), makeCard('S', '9')],
+        p1: [makeCard('D', '4'), makeCard('C', '3')],
+    });
+    const out = engine.executeSwap(g, 1, 'red');
+    assert.strictEqual(out.phase, 'finished');
+    assert.throws(() => engine.burnAndDraw(out, out.currentPlayer, out.hands[out.currentPlayer][0].id),
+        /already finished/);
+    assert.throws(() => engine.declareAttack(out, out.currentPlayer), /already finished/);
+});
+
+test('turnsUntilRoundCap counts down per player', () => {
+    const g = engine.newGame(seededRng(23));
+    assert.deepStrictEqual(engine.turnsUntilRoundCap(g), [8, 8]);
+    g.prepTurnsCompleted = [7, 8];
+    assert.deepStrictEqual(engine.turnsUntilRoundCap(g), [1, 0]);
+    g.prepTurnsCompleted = [9, 9]; // never negative
+    assert.deepStrictEqual(engine.turnsUntilRoundCap(g), [0, 0]);
+});
+
+// ---- New-card highlight -----------------------------------------------------
+
+test('a drawn card is marked new, survives the opponent turn, clears on your next', () => {
+    let g = engine.newGame(seededRng(42));
+    const p = g.currentPlayer;
+    const q = p === 0 ? 1 : 0;
+
+    g = engine.burnAndDraw(g, p, g.hands[p][0].id);
+    const drawn = g.log[g.log.length - 1].drawn;
+    assert.deepStrictEqual(g.freshCards[p], { [drawn]: 'draw' }, 'exactly the drawn card is new');
+
+    // The opponent acting must NOT clear the other player's highlight.
+    g = engine.burnAndDraw(g, q, g.hands[q][0].id);
+    assert.strictEqual(g.freshCards[p][drawn], 'draw', 'highlight survives their turn');
+
+    // Acting again clears the old one and marks only the newly drawn card.
+    const keep = g.hands[p].find((c) => c.id !== drawn);
+    g = engine.burnAndDraw(g, p, keep.id);
+    const drawn2 = g.log[g.log.length - 1].drawn;
+    assert.ok(!(drawn in g.freshCards[p]), 'spent highlight is cleared');
+    assert.strictEqual(g.freshCards[p][drawn2], 'draw');
+});
+
+test('a forced swap marks the new card for BOTH players', () => {
+    let g = engine.newGame(seededRng(13));
+    const p = g.currentPlayer;
+    const q = p === 0 ? 1 : 0;
+    g.hands[p] = [makeCard('H', 'K'), makeCard('S', '4')];
+    g.hands[q] = [makeCard('S', 'Q'), makeCard('H', '4')];
+
+    g = engine.executeSwap(g, p, 'red');
+    assert.strictEqual(g.freshCards[p]['QS'], 'swap', 'initiator sees what they received');
+    assert.strictEqual(g.freshCards[q]['KH'], 'swap', 'opponent sees what was forced on them');
+});
+
+test('a card that leaves the hand loses its new marker', () => {
+    let g = engine.newGame(seededRng(5));
+    const p = g.currentPlayer;
+    const q = p === 0 ? 1 : 0;
+    g = engine.burnAndDraw(g, p, g.hands[p][0].id);
+    const drawn = g.log[g.log.length - 1].drawn;
+    assert.ok(drawn in g.freshCards[p]);
+
+    // Force that exact card out via a swap initiated by the opponent.
+    g.hands[p] = [{ ...g.hands[p].find((c) => c.id === drawn) }];
+    g.hands[q] = [makeCard(g.hands[p][0].type === 'red' ? 'S' : 'H', 'A')];
+    const type = g.hands[p][0].type === 'red' ? 'black' : 'red';
+    g = engine.executeSwap(g, q, type);
+    assert.ok(!(drawn in g.freshCards[p]), 'a card no longer held cannot stay highlighted');
+});
+
 test('engine actions are immutable - original state is untouched', () => {
     const g = engine.newGame(seededRng(23));
     const before = JSON.stringify(g);
