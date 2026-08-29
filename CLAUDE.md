@@ -141,11 +141,31 @@ a phase, not a one-line fix), stop and state back, in one short message:
   or guessed mid-build.
 
 Then **wait for an explicit go-ahead** before writing code. This is a
-separate gate from standard #9 below — this one sits at the *start* of work,
-that one at the *end*; a phase should be bounded on both sides by a
-checkpoint with the user, not just the finish.
+separate gate from standard #10 below — this one sits at the *start* of
+work; #9 is the matching gate at the *finish*.
 
-## 9. Don't deploy on every message — batch, verify, wait for the go-ahead
+## 9. Report delivery when a phase finishes — what, how, and what it doesn't touch
+
+The closing half of standard #8: a phase should be bounded by a checkpoint on
+both sides, not just the finish line of "it works." When a phase or backlog
+item is done — built, tested, committed — close it out with three things,
+concretely, not as a restatement of the original plan:
+
+- **What was covered** — the actual pieces shipped.
+- **How, briefly** — the real approach taken, especially anywhere it
+  deviated from the scope confirmed in standard #8 (a gap found mid-build, a
+  decision made along the way).
+- **What it doesn't affect** — explicit confirmation that the rest of
+  `docs/BACKLOG.md` (standard #13) is still buildable as described. Actually
+  check this, don't just assert it — if something DID change for a later
+  item, say so and update that item's entry rather than leaving it stale.
+
+Example of this working: the Phase 1 report named a bug standard #7 (green
+tests aren't proof) predicts unit tests alone would miss — `log[log.length-1]`
+breaking once round cap could append a second event — and confirmed Phase 2's
+redesign scope was unaffected rather than silently assuming so.
+
+## 10. Don't deploy on every message — batch, verify, wait for the go-ahead
 
 Building a feature and shipping it to the live URL are two different
 decisions. Default to: implement, test locally (unit tests + a real running
@@ -160,7 +180,7 @@ creates a throwaway preview URL without touching the production alias —
 prefer that over `--prod` when a live check is genuinely needed before the
 batch is ready.
 
-## 10. Decisions get written down at decision time
+## 11. Decisions get written down at decision time
 
 `docs/DECISIONS.md` is the running record of confirmed and open rule
 questions, written as they're settled — not reconstructed from chat scrollback
@@ -168,7 +188,7 @@ later. When a design discussion in chat lands on something concrete, it goes
 in that file before implementation starts, with open questions marked `OPEN`
 explicitly rather than silently assumed.
 
-## 11. Player-facing views never expose internals; admin gating is deferred, not forgotten
+## 12. Player-facing views never expose internals; admin gating is deferred, not forgotten
 
 A player-facing view (the game screen, any player-visible log or history)
 shows only game *content* — cards, moves, outcomes. Never function or
@@ -183,7 +203,7 @@ exists, gating the admin namespace behind it is the natural next step. Don't
 silently "fix" this by adding ad-hoc checks — track it as a real feature. See
 `docs/DECISIONS.md` § Player-log vs admin-log segregation.
 
-## 12. Design forward for the whole backlog, not just the current phase
+## 13. Design forward for the whole backlog, not just the current phase
 
 When a phase touches the DB schema or the architecture, keep the *rest* of
 `docs/BACKLOG.md` in mind while shaping it — not to build those items early,
@@ -208,7 +228,7 @@ If a phase's natural implementation would make a later, already-queued item
 harder or require a migration to undo, that's worth a line in the
 scope-confirmation from standard #8 — not a silent decision either way.
 
-## 13. Track the build backlog; surface it when it changes, not on schedule
+## 14. Track the build backlog; surface it when it changes, not on schedule
 
 `docs/BACKLOG.md` holds what's confirmed-and-queued to build vs. already
 shipped. Update it whenever an item is added, resolved, or moves in/out of
