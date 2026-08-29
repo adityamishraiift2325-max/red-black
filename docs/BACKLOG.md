@@ -27,28 +27,37 @@ narrate the machinery · tension not jokes.
 
 ---
 
-## 1. Round cap + always reveal your hand + new-card highlight
+## ✅ 1. Round cap + always reveal your hand + new-card highlight — SHIPPED to git, awaiting deploy
 
-These three ship together as one batch.
+Built and tested 2026-08-29. 26/26 engine tests, 32/32 multiplayer checks,
+11/11 round-cap end-to-end checks including a live browser DOM check of the
+result screen. Committed (`56c290d`), **not yet deployed** — holding for the
+go-ahead per the batch-then-ship workflow.
 
-- **Round cap — forced dual attack.** Max 8 prep turns each; auto-resolves by
-  comparing total hand value; ties go to the second-mover. Fully specified.
-  → `docs/DECISIONS.md` § Round cap
-- **Always reveal your own hand.** Remove the "click to see your cards"
-  toggle entirely (`revealBtn`, `state.revealed`). Seat isolation is enforced
-  server-side, so hiding a player's hand from *themselves* was pure friction
-  with zero security value. Client-side only: `public/app.js` (8 refs) +
-  `public/index.html`.
-- **NEW — highlight newly-acquired cards.** Any card that just entered your
-  hand — drawn after a burn, received in a swap, or taken/given in a
-  challenge — is visually marked for exactly one turn, so a player can see at
-  a glance what changed without re-reading their whole hand. Clears on their
-  next action. Mostly client-side, but note the data is already there and
-  unused: `hand_json` carries a per-card `acquired` field
-  (`deal`/`draw`/`swap`/`challenge`) that nothing currently reads. Likely
-  needs one addition — a marker for *which turn* it was acquired — so "one
-  turn only" can be computed rather than guessed. Shown in all four mockups
-  as the `NEW` tag.
+- **Round cap.** Fires automatically from `endTurn()`; compares total hand
+  value; ties go to whoever didn't start. `startingPlayer` is now properly
+  persisted (it wasn't before — written to the DB but never read back).
+- **Always reveal your own hand.** `revealBtn` / `state.revealed` fully
+  removed.
+- **New-card highlight.** Cards marked via `freshCards`, cleared on the
+  owner's own next action. This also fixed a real, previously invisible
+  regression: `hand_json`'s `acquired` field had been silently stuck at
+  `'deal'` for every card since the Turso rewrite dropped the code that used
+  to populate it.
+
+**Found and fixed along the way, worth knowing about:** every service that
+read `log[log.length - 1]` assumed its own event was always last in the log.
+A completed round cap appends a second event (`round_cap_resolved`) after
+the triggering action — this silently 500'd Burn/Swap/Challenge the moment
+any of them happened to complete the cap. The unit suite stayed green
+throughout; only the end-to-end test caught it. Fixed with a `findEvent()`
+helper (`GameContext.js`) used by name, not position, across all four
+services — worth remembering as the pattern for any future engine change
+that can append more than one log event per action.
+
+Turn-7 warning and cap countdown were added to the client **functionally
+only**, using existing styling — the polished warning-strip treatment from
+the mockups is Phase 2 scope, so it wasn't built twice.
 
 ## 2. Visual redesign — apply the chosen direction
 
