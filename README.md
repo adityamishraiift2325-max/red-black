@@ -8,6 +8,19 @@ lose instantly.
 
 **Live:** https://red-and-black.vercel.app
 
+**New here?** This README covers rules, architecture and how to run the
+project. For everything else — what's built vs. queued, why a rule works the
+way it does, and the engineering standards this codebase follows — read these
+three next, in this order:
+
+1. [`CLAUDE.md`](CLAUDE.md) — standing engineering standards (how changes get
+   made: scope confirmation, testing discipline, the deploy workflow).
+2. [`docs/BACKLOG.md`](docs/BACKLOG.md) — what's shipped, what's queued next,
+   in priority order.
+3. [`docs/DECISIONS.md`](docs/DECISIONS.md) — the *why* behind rules that
+   aren't obvious from the code alone (round-cap tie-breaks, the Joker's open
+   questions, session-recovery design).
+
 ## The rules that matter
 
 - **Hands are always 6 cards.** Every exchange is 1-for-1.
@@ -24,11 +37,22 @@ lose instantly.
   The loser must accept it. Declining is simply conceding.
 - **Attacks are committed blind.** You are never shown the opponent's defense
   total before deciding. A tie loses for the attacker.
+- **A round cap forces the issue.** Once both players have taken 8 preparation
+  turns without either attacking, the game resolves itself: totals (offense +
+  defense) are compared automatically, and a tie goes to whoever didn't move
+  first. Nobody can stall a bluffing game forever. See `docs/DECISIONS.md` §
+  Round cap for the exact formula.
 
 ## Architecture
 
 ```
-public/          browser client (vanilla JS, no build step)
+public/          browser client — vanilla JS, native ES modules, no build step
+  state.js         shared state, session persistence, DOM helpers
+  api.js           fetch wrapper + durable client-error reporting
+  cards.js         card rendering
+  dialogs.js       drawer / waiting room / attack-confirm / result overlay
+  actions.js       turn actions, the busy-loader, cap-countdown strip, render()
+  main.js          button wiring + resume-an-interrupted-session on load
 src/
   engine/        pure game rules — no I/O, no database
   models/        Card, Hand, Game, Challenge
@@ -42,6 +66,10 @@ api/index.js     Vercel serverless entrypoint
 
 The engine is completely decoupled from storage: every action takes a state and
 returns a **new** state, so the rules are testable in isolation.
+
+The visual design is "Dusk Velvet" (plum-to-black ground, apricot accent,
+Fraunces/Karla type) — see `docs/BACKLOG.md`'s Decided section for the exact
+tokens if you're touching `public/styles.css`.
 
 ### Hidden information is enforced server-side
 
@@ -62,17 +90,49 @@ corrupting the game.
 
 ```bash
 npm install
-npm start
+npm start          # or: npm run dev  (auto-restarts on file changes)
 ```
 
-Opens on http://localhost:3000 using a local SQLite file at `data/redblack.db`.
-No configuration needed.
+Opens on http://localhost:3000 using a local SQLite file at `data/redblack.db`
+(gitignored — every clone gets its own, and it's a plain file you can delete
+to reset). **No environment variables, no credentials, no access to anything
+production needs.** This is deliberate — see `.env.example`.
+
+To play a full game solo: open the app in two browser tabs (or one normal +
+one incognito, so they don't share `localStorage`). Create a game in the
+first tab, copy the room code, join with it in the second. `/dev.html` (below)
+is the fastest way to see both hands and the log at once while you test.
 
 ```bash
 npm test
 ```
 
+Runs the engine's unit tests (`test/engine.test.js`) — 26 tests covering the
+rules in isolation, no server or database involved. **These are necessary,
+not sufficient** — CLAUDE.md standard #7 has the reasoning and four real bugs
+that stayed green in this suite but broke a running server. Before calling
+anything done, actually click through it in a browser.
+
+## For collaborators (branches & PRs)
+
+- Branch off `main`: `git checkout -b <your-name>/<short-description>`.
+- Commit as you go — small, frequent commits are welcome.
+- Open a PR back to `main` when a piece is ready; that's the merge point,
+  not a direct push to `main`.
+- **Deploying is out of scope for a branch.** `npx vercel --prod` moves the
+  live production alias and needs credentials you won't have — don't run it.
+  A plain `npx vercel` (no `--prod`) still won't work without those
+  credentials either; test locally instead (see above), which needs none.
+- Read `CLAUDE.md` before starting — in particular standard #8 (state
+  assumptions/blast-radius before building a phase) and standard #7 (unit
+  tests are necessary but not sufficient; verify against a running instance).
+- If a change touches game rules, check `docs/DECISIONS.md` first — several
+  rules have a specific, already-settled formula (round-cap tie-breaks,
+  challenge-decline mechanics) that isn't obvious from reading the code cold.
+
 ## Deploying
+
+*(Project owner only — see "For collaborators" above if you're on a branch.)*
 
 Production uses [Turso](https://turso.tech) (hosted libSQL), because Vercel's
 filesystem is ephemeral — a SQLite file on disk would not survive between
