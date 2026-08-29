@@ -140,6 +140,13 @@ function renderActions() {
       : 'Pick a card to hand over.';
     sel.appendChild(hint);
 
+    // Buttons go in their own flex row, separate from the hint — appending
+    // them straight into #selection left them with no gap at all (no
+    // whitespace text nodes between DOM-created siblings the way there
+    // would be between hand-written HTML tags), so adjacent pill buttons
+    // rendered edge-to-edge. See CSS .selection-actions.
+    const row = document.createElement('div');
+    row.className = 'selection-actions';
     const go = document.createElement('button');
     go.className = 'primary';
     go.disabled = !state.chosen;
@@ -150,7 +157,8 @@ function renderActions() {
     cancel.className = 'ghost';
     cancel.textContent = 'Never mind';
     cancel.onclick = () => { state.mode = null; state.chosen = null; render(); };
-    sel.append(go, cancel);
+    row.append(go, cancel);
+    sel.appendChild(row);
     return;
   }
 
@@ -158,18 +166,21 @@ function renderActions() {
     sel.hidden = false;
     sel.innerHTML = '<div class="hint">Which colour are you giving up? You\'ll take their ' +
                     'highest of the other colour — they don\'t get a say.</div>';
+    const row = document.createElement('div');
+    row.className = 'selection-actions';
     for (const t of ['red', 'black']) {
       const b = document.createElement('button');
       b.className = 'primary';
       b.textContent = `My highest ${t}`;
       b.onclick = () => act(() => api('POST', `/games/${state.gameId}/swap`, { type: t }));
-      sel.appendChild(b);
+      row.appendChild(b);
     }
     const cancel = document.createElement('button');
     cancel.className = 'ghost';
     cancel.textContent = 'Never mind';
     cancel.onclick = () => { state.mode = null; render(); };
-    sel.appendChild(cancel);
+    row.appendChild(cancel);
+    sel.appendChild(row);
     return;
   }
 
