@@ -125,7 +125,27 @@ not prove the *deployed system* behaves right. Before calling anything done,
 hit the actual running server (locally or in prod) and check real behavior —
 including reading the server log, not just the response status.
 
-## 8. Don't deploy on every message — batch, verify, wait for the go-ahead
+## 8. Confirm scope before starting a phase — don't just start building
+
+At the start of any build phase or backlog item (not every small edit —
+a phase, not a one-line fix), stop and state back, in one short message:
+
+- **Assumptions** — anywhere the spec has a gap and a call has to be made to
+  proceed at all, name the call before making it.
+- **Blast radius** — what else in the system this could touch: other screens
+  that share the code being changed, other in-flight or queued backlog
+  items, data that needs a migration, anything that was working before and
+  might not be after.
+- **Inputs still needed** — a decision only the user can make, content only
+  they can supply, a credential, anything that would otherwise get invented
+  or guessed mid-build.
+
+Then **wait for an explicit go-ahead** before writing code. This is a
+separate gate from standard #9 below — this one sits at the *start* of work,
+that one at the *end*; a phase should be bounded on both sides by a
+checkpoint with the user, not just the finish.
+
+## 9. Don't deploy on every message — batch, verify, wait for the go-ahead
 
 Building a feature and shipping it to the live URL are two different
 decisions. Default to: implement, test locally (unit tests + a real running
@@ -140,7 +160,7 @@ creates a throwaway preview URL without touching the production alias —
 prefer that over `--prod` when a live check is genuinely needed before the
 batch is ready.
 
-## 9. Decisions get written down at decision time
+## 10. Decisions get written down at decision time
 
 `docs/DECISIONS.md` is the running record of confirmed and open rule
 questions, written as they're settled — not reconstructed from chat scrollback
@@ -148,7 +168,7 @@ later. When a design discussion in chat lands on something concrete, it goes
 in that file before implementation starts, with open questions marked `OPEN`
 explicitly rather than silently assumed.
 
-## 10. Player-facing views never expose internals; admin gating is deferred, not forgotten
+## 11. Player-facing views never expose internals; admin gating is deferred, not forgotten
 
 A player-facing view (the game screen, any player-visible log or history)
 shows only game *content* — cards, moves, outcomes. Never function or
@@ -163,7 +183,7 @@ exists, gating the admin namespace behind it is the natural next step. Don't
 silently "fix" this by adding ad-hoc checks — track it as a real feature. See
 `docs/DECISIONS.md` § Player-log vs admin-log segregation.
 
-## 11. Track the build backlog; surface it when it changes, not on schedule
+## 12. Track the build backlog; surface it when it changes, not on schedule
 
 `docs/BACKLOG.md` holds what's confirmed-and-queued to build vs. already
 shipped. Update it whenever an item is added, resolved, or moves in/out of
