@@ -115,6 +115,17 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* The instant click-feedback loader — action buttons swap to this the
+   moment they're clicked, before the network round trip. */
+.spinner.inline {
+  display: inline-block; width: 15px; height: 15px; margin: 0;
+  vertical-align: -3px;
+}
+.hint.busy-hint {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  color: var(--text); font-size: 14px;
+}
+
 /* ── lobby ───────────────────────────────────────────── */
 .lobby { display: grid; place-items: center; padding: 48px 20px; }
 .lobby-card {

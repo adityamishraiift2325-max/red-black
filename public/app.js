@@ -16,6 +16,9 @@ const state = {
   mode: null,           // null | 'burn' | 'swap' | 'challenge' | 'giveback'
   chosen: null,
   poll: null,
+  busy: false,           // an action is in flight — see act(). Drives the
+                          // instant click-feedback loader so a click never
+                          // looks like it silently did nothing.
 };
 
 const $ = (id) => document.getElementById(id);
@@ -174,6 +177,18 @@ function renderActions() {
   box.innerHTML = '';
   sel.hidden = true;
   sel.innerHTML = '';
+
+  // Your move was sent — this is the entire point: the instant you click,
+  // the actual buttons are gone from the DOM (replaced by this), so a second
+  // click on the same spot physically cannot resubmit. Clears the instant
+  // act() gets a response, success or failure — see act().
+  if (state.busy) {
+    sel.hidden = false;
+    sel.innerHTML = '<div class="hint busy-hint">' +
+      '<span class="spinner inline"></span> Sending your move…</div>';
+    return;
+  }
+
   if (v.status === 'finished' || v.status === 'lobby') return;
   const acts = v.legalActions || [];
 
@@ -374,12 +389,25 @@ function showResult(v) {
 
 /* ── flow ─────────────────────────────────────────────── */
 async function act(fn) {
+  // Set BEFORE the await, synchronously, so the loader appears on the very
+  // click that triggered it — not after the network round trip. That's the
+  // whole fix: previously a player had no signal their click registered
+  // until the state actually changed (2.5s poll or the request finishing),
+  // so an action under any latency looked exactly like a dead click.
+  state.busy = true;
+  renderActions();
   try {
     await fn();
     state.mode = null;
     state.chosen = null;
-    await refresh();
-  } catch (e) { toast(e.message); reportClientError('action:' + (state.mode || 'unknown'), e); }
+    state.busy = false;
+    await refresh(); // re-renders with the new turn state — busy is already false
+  } catch (e) {
+    state.busy = false;
+    toast(e.message);
+    reportClientError('action:' + (state.mode || 'unknown'), e);
+    renderActions(); // clear the loader on failure too; refresh() never ran on this path
+  }
 }
 
 async function refresh() {
