@@ -17,7 +17,7 @@ holds *what's queued to build*.
    client no longer destroys a valid session on a transient error (only on a
    genuine 401), and a room-code + matching-name rejoin lets a player reclaim
    their seat if their browser's storage is truly gone, gated to only work
-   once that seat has been idle 20+ seconds so it can never interrupt an
+   once that seat has been idle 30+ seconds so it can never interrupt an
    active player. Also removed the public `GET /api/games` listing found
    while working in this area — it leaked every game's join code (the room's
    password) to anyone who asked. 18/18 engine tests, 32/32 multi-player

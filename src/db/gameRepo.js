@@ -171,7 +171,7 @@ async function createGame(state, { hostName, hostSeat = 0 }) {
 // is always fresh and can never be reclaimed out from under it — only a
 // genuinely disconnected seat (closed tab, dead battery, lost storage after
 // a back-button navigation) becomes eligible. See docs/DECISIONS.md.
-const RECLAIM_IDLE_SECONDS = 20;
+const RECLAIM_IDLE_SECONDS = 30;
 
 function secondsSince(isoUtc) {
     if (!isoUtc) return Infinity; // never seen a request from this seat -> treat as idle

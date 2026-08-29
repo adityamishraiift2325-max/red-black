@@ -116,7 +116,7 @@ reconnecting, not a stranger — they get a fresh token for that seat, and the
 old one dies immediately.
 
 Gated by presence, not by knowledge alone: a seat is only reclaimable once it
-has gone quiet for `RECLAIM_IDLE_SECONDS` (20s — well above the 2.5s client
+has gone quiet for `RECLAIM_IDLE_SECONDS` (30s — well above the 2.5s client
 poll, so an actively-playing seat's presence is always fresh and can never be
 reclaimed out from under it). Explored and rejected: device/browser
 fingerprinting as an alternative identifier — rejected because it would be
