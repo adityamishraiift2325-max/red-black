@@ -27,10 +27,11 @@ narrate the machinery · tension not jokes.
 
 ---
 
-## 1. Attack-unlocked countdown + margin-first result screen
+## 1. Attack-unlocked countdown + result-screen overhaul
 
-Added 2026-08-29 from user feedback on the live mobile-fixes pass. Two
-separate screens, explicitly bundled into one phase by the user.
+Added 2026-08-29/30 from user feedback. Three pieces, two screens — the cap
+countdown (a), and the result overlay getting both a margin-first rewrite
+(b) and an auto-redirect (c) added a day later. Bundled into one phase.
 
 **a) The cap countdown should start the moment attack unlocks, not just when
 it's close.** Right now `renderCapWarning()` (`actions.js`) only shows the
@@ -60,6 +61,25 @@ declared attack the defender held), make the margin number the visually
 dominant one, and demote the two raw totals to a secondary/supporting role
 rather than removing them (a bluffing game's post-mortem should still let a
 player see the actual numbers if they want them).
+
+**c) Auto-redirect off the result screen after 15 seconds.** Added
+2026-08-30. Once the victory/defeat overlay shows, start a 15-second timer;
+on expiry, take the player back to the lobby/new-game screen automatically
+— the same destination `backBtn`/`againBtn` already send them to (client
+routing only, no backend involved: the game record just sits `finished` in
+the DB regardless of when either player navigates away). `ASSUMPTION`:
+"new game screen" means the lobby (start-a-game / join-a-game screen), not
+auto-creating a fresh game on the player's behalf — confirm before building
+if that's wrong. Two things worth deciding at build time, not guessing:
+- The timer should almost certainly be visible (a small "Returning to the
+  lobby in Ns…" label in the established voice), not a silent surprise
+  redirect — and should cancel if the player clicks either result-screen
+  button (`reviewBtn`/`againBtn`) rather than firing on top of whatever they
+  chose to do instead.
+- Whether a player who wants to linger on the reveal gets any way to cancel
+  it (e.g. a small "stay here" dismiss), or whether 15s is simply the
+  screen's lifetime, full stop — a real product call, not obvious either
+  way.
 
 ## 2. Player-facing end-of-game log
 
