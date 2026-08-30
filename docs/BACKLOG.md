@@ -157,5 +157,6 @@ external dependency)*
   flex-wrap). Live-verified at 375×812, the exact 360×560 case the backlog
   cited (confirmed the previously-unreachable "Again" button is now
   scrollable into view), and a synthetic 900px-container test confirming
-  desktop card sizing is unaffected. **Committed, not yet deployed** —
-  holding for the go-ahead.
+  desktop card sizing is unaffected. **Deployed to production 2026-08-30**
+  — live-verified: `.selection-actions`/the card grid CSS confirmed serving
+  from `red-and-black.vercel.app`, real API round trip still healthy.
