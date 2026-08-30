@@ -66,6 +66,13 @@ export async function confirmAttack() {
 export const closeAttackConfirm = () => { $('attackConfirm').hidden = true; };
 
 /* ── end-of-game result ───────────────────────────────── */
+function setMargin(won, claim, value) {
+  $('marginCallout').hidden = false;
+  $('marginClaim').textContent = claim;
+  $('marginNum').textContent = `+${value}`;
+  $('marginNum').className = 'margin-num ' + (won ? 'win' : 'lose');
+}
+
 export function showResult(v) {
   $('overlay').hidden = false;
   const won = v.youWon;
@@ -75,10 +82,13 @@ export function showResult(v) {
   // system reporting on you.
   $('resultTitle').textContent = won ? 'Called it' : 'Not this time';
   $('resultTitle').className = 'result-title ' + (won ? 'win' : 'lose');
+  $('marginCallout').hidden = true; // reset; each branch below re-shows it
 
   const r = v.finalReveal;
   if (!r || !r.attack) {
     $('resultDetail').textContent = `Player ${v.winnerSeat} takes the duel.`;
+    $('showdown').innerHTML = '';
+    startAutoRedirect();
     return;
   }
   const a = r.attack;
@@ -92,6 +102,13 @@ export function showResult(v) {
       ? `Neither of you blinked — the tie broke to ${won ? 'you' : v.opponentName}.`
       : (won ? `Neither of you attacked. Your hand held up better.`
              : `Neither of you attacked. ${v.opponentName}'s hand held up better.`);
+
+    // A tie has no margin to lead with — the totals were literally equal,
+    // a tie-break RULE decided it, not a number. resultDetail above already
+    // says so; leave the callout hidden rather than show a hollow "+0".
+    if (!rc.wasTie) {
+      setMargin(won, won ? 'You had the better hand' : `${v.opponentName} had the better hand`, rc.netMargin);
+    }
 
     $('showdown').innerHTML =
       `<div class="sd ${won ? 'winner' : ''}">
@@ -113,6 +130,15 @@ export function showResult(v) {
       ? `You went for it with <b>${mine}</b>. ${v.opponentName} was sitting on <b>${theirs}</b>.`
       : `${v.opponentName} went for it with <b>${theirs}</b>. You were sitting on <b>${mine}</b>.`;
 
+    // Whichever stat actually decided it — the attacker's offense clearing
+    // the bar, or the defender's defense holding it. a.margin is signed
+    // (offense − defense) from the engine, so it's negative/zero whenever
+    // the defender held; Math.abs turns that into the "by N" magnitude
+    // regardless of which side won.
+    const attackerWon = a.winnerSeat === a.attackerSeat;
+    const stat = attackerWon ? 'offense' : 'defense';
+    setMargin(won, `${won ? 'You' : v.opponentName} had the better ${stat}`, Math.abs(a.margin));
+
     $('showdown').innerHTML =
       `<div class="sd ${a.winnerSeat === a.attackerSeat ? 'winner' : ''}">
          <div class="sd-label">${a.youAttacked ? 'Your' : 'Their'} offense</div>
@@ -133,4 +159,43 @@ export function showResult(v) {
   $('oppRevealTotals').innerHTML =
     `Their offense <b>${r.opponentTotals.offense}</b> · their defense <b>${r.opponentTotals.defense}</b><br>` +
     `<span style="opacity:.7">Yours: offense <b>${r.yourTotals.offense}</b> · defense <b>${r.yourTotals.defense}</b></span>`;
+
+  startAutoRedirect();
+}
+
+/* ── auto-redirect off the result screen (backlog item 1c) ──────────── */
+const AUTO_REDIRECT_SECONDS = 15;
+let redirectTimer = null;
+
+// showResult() only ever fires once per finished game (startPolling() in
+// actions.js stops refreshing once status is 'finished'), so this doesn't
+// need its own re-entrancy guard beyond the plain clearInterval below.
+function startAutoRedirect() {
+  cancelAutoRedirect();
+  let remaining = AUTO_REDIRECT_SECONDS;
+  const label = $('autoRedirect');
+  const tick = () => { label.textContent = `Returning to the lobby in ${remaining}s…`; };
+  tick();
+  redirectTimer = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      // Reuse the exact "Again" flow rather than duplicating what it does —
+      // one path back to the lobby, whether the player clicks it or the
+      // clock does. main.js's own handler calls cancelAutoRedirect() first,
+      // so this is safe to fire from inside the interval it's clearing.
+      $('againBtn').click();
+      return;
+    }
+    tick();
+  }, 1000);
+}
+
+// Exported so main.js can stop the clock the moment the player acts on
+// either result-screen button — the countdown should never fire on top of
+// something they already chose to do instead (backlog item 1c).
+export function cancelAutoRedirect() {
+  clearInterval(redirectTimer);
+  redirectTimer = null;
+  const label = $('autoRedirect');
+  if (label) label.textContent = '';
 }

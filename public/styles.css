@@ -362,17 +362,30 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
 .result-card.wide { width: min(560px, 94vw); padding: 34px 40px; }
 .result-actions { display: flex; gap: 10px; justify-content: center; }
 
+/* The headline number — which stat won it, and by how much. Takes over the
+   visual weight the showdown totals used to carry (backlog item 1b: a
+   player shouldn't have to subtract two big numbers themselves). */
+.margin-callout { margin-bottom: 22px; }
+.margin-claim { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 2px; }
+.margin-num { font-family: Fraunces, Georgia, serif; font-size: 52px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.margin-num.win { color: var(--ok); }
+.margin-num.lose { color: var(--rose); }
+
+/* Supporting detail now, not the headline — smaller than before the margin
+   callout above took over that role. */
 .showdown { display: flex; align-items: stretch; gap: 12px; justify-content: center; margin-bottom: 22px; }
 .showdown .sd {
-  flex: 1; padding: 14px 10px; border-radius: 14px;
+  flex: 1; padding: 12px 10px; border-radius: 14px;
   background: rgba(255,255,255,.04); border: 1px solid var(--line);
 }
 .showdown .sd.winner { border-color: rgba(126,217,159,.5); background: rgba(126,217,159,.1); }
 .showdown .sd-label { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
-.showdown .sd-num { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.showdown .sd-num { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.3; }
 .showdown .sd-num.off { color: var(--rose); }
 .showdown .sd-num.def { color: var(--sky); }
 .showdown .sd-note { font-size: 11px; color: var(--muted); }
+
+.auto-redirect { color: var(--muted); font-size: 12px; text-align: center; margin: 14px 0 0; }
 
 .reveal-block { border-top: 1px solid var(--line); padding-top: 20px; margin-bottom: 24px; }
 .reveal-label { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin-bottom: 12px; }
@@ -451,5 +464,5 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   .tally { gap: 14px; }
   .tally-num { font-size: 32px; }
   .result-title { font-size: 26px; }
-  .showdown .sd-num { font-size: 24px; }
+  .margin-num { font-size: 40px; }
 }

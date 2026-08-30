@@ -38,19 +38,19 @@ function renderHands() {
 }
 
 /* ── the round-cap countdown strip ────────────────────── */
-/* Only shown once it's near — noise for most of the game otherwise. <=3
-   turns left on EITHER side is close enough to matter. Shows both sides'
+/* Shown from the instant attacking becomes possible, not just once it's
+   close (backlog item 1a) — v.canAttack is already the authoritative signal
+   for that moment, so there's no separate threshold to keep in sync with
+   MAX_PREP_TURNS/MIN_PREP_TURNS if either ever changes. Shows both sides'
    counts rather than synthesizing one "in N turns" figure: turns alternate,
    so a single combined number would be misleading whenever it isn't
    currently your turn. */
 function renderCapWarning() {
   const v = state.view;
   const strip = $('capWarning');
-  const close = v.turnsUntilCap
-    && v.status === 'preparing'
-    && Math.min(v.turnsUntilCap.you, v.turnsUntilCap.opponent) <= 3;
-  strip.classList.toggle('show', !!close);
-  if (!close) return;
+  const show = v.status === 'preparing' && v.canAttack && v.turnsUntilCap;
+  strip.classList.toggle('show', !!show);
+  if (!show) return;
   $('capWarningText').innerHTML = v.isFinalPrepTurn
     ? `<b>Last turn.</b> After this you both attack at once, whether you're ready or not.`
     : `<b>${v.turnsUntilCap.you}</b> of your turns, <b>${v.turnsUntilCap.opponent}</b> of ` +

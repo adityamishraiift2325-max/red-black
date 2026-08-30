@@ -88,9 +88,10 @@
     <span class="hidden-note" id="oppTurnNote"></span>
   </section>
 
-  <!-- Round-cap countdown. Hidden by default (.show toggles it) — this is
-       noise for most of a game and should only appear once the cap is close.
-       See renderCapWarning() in actions.js. -->
+  <!-- Round-cap countdown. Hidden by default (.show toggles it) — appears
+       from the instant attacking is unlocked, since that's the moment the
+       forced-reveal countdown genuinely starts. See renderCapWarning() in
+       actions.js. -->
   <section class="cap-warning" id="capWarning">
     <span class="cap-dot"></span>
     <span id="capWarningText"></span>
@@ -156,6 +157,14 @@
     <div class="result-title" id="resultTitle"></div>
     <div class="result-detail" id="resultDetail"></div>
 
+    <!-- The margin leads; the raw totals below are supporting detail, not
+         the headline. Hidden on a round-cap tie — there's no margin to lead
+         with when the totals were equal. See showResult() in dialogs.js. -->
+    <div class="margin-callout" id="marginCallout" hidden>
+      <div class="margin-claim" id="marginClaim"></div>
+      <div class="margin-num" id="marginNum"></div>
+    </div>
+
     <!-- Safe to disclose now: the game is over. -->
     <div class="showdown" id="showdown"></div>
     <div class="reveal-block">
@@ -168,6 +177,9 @@
       <button class="ghost" id="reviewBtn">See how it went</button>
       <button class="primary" id="againBtn">Again</button>
     </div>
+    <!-- Auto-redirect countdown (backlog item 1c) — text only, no markup
+         needed beyond this; see startAutoRedirect() in dialogs.js. -->
+    <p class="auto-redirect" id="autoRedirect"></p>
   </div>
 </div>
 
