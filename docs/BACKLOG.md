@@ -119,5 +119,8 @@ external dependency)*
   unused by the client. Live-verified against both a declared-attack win
   and a round-cap win (margin math checked against the raw totals both
   times), cancel-on-click confirmed via a real interval check (not just
-  the label), and the full 15s natural expiry let run for real. **Not yet
-  deployed** — holding for the go-ahead.
+  the label), and the full 15s natural expiry let run for real.
+  **Deployed to production 2026-08-30** — live-verified: `.margin-callout`/
+  `cancelAutoRedirect` confirmed serving from `red-and-black.vercel.app`,
+  real API round trip still healthy (1.2s — cold-start range, not the
+  region-mismatch failure mode).
