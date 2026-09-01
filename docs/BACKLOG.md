@@ -56,6 +56,64 @@ that would have satisfied a later swap demand," vs. something requiring
 exploration of alternate lines of play, which is a materially bigger
 problem). No design work done yet.
 
+## 4. Rock-paper-scissors opener — winner moves first
+
+Added 2026-09-01. Both players get 10 seconds to pick rock, paper or
+scissors; the system compares picks once both are in (or time's up) and the
+winner becomes the starting player. Explicitly not designed yet beyond that
+— copy and iconography are open, "we can discuss further when we pick it
+up" per the user.
+
+**Real blast radius, worth knowing before scoping this properly:** dealing
+isn't decoupled from game creation today. `engine.newGame()` both shuffles
+the deck **and** coin-flips `startingPlayer` (`Math.floor(rng() * 2)`) in
+one call, and `DealService.createGame()` invokes it immediately when the
+host creates the room — before the second player has even joined. Moving
+"who starts" to an RPS outcome means splitting that: an empty/undealt game
+state at creation, with the actual shuffle+deal deferred until after RPS
+resolves (this is also exactly what item 5 needs — the winner triggering
+the deal explicitly). `startingPlayer` also already feeds the round-cap
+tie-break rule (`other(state.startingPlayer)` — ties go to whoever didn't
+start, see `docs/DECISIONS.md` § Round cap). Whatever RPS produces needs to
+land in that same field, not a parallel one, so that rule keeps working
+unchanged rather than needing its own redesign.
+
+**Mechanically, this is the same shape as blind challenges** — commit a
+hidden choice, reveal once both are in — so it's less new ground than it
+looks; the difference is a 10-second server-authoritative clock, which
+nothing else in the app currently has.
+
+Open questions worth settling before building, not guessing:
+- `OPEN`: what happens on a tie (both pick the same)? Redraw immediately,
+  or something else?
+- `OPEN`: what happens if a player doesn't pick within 10 seconds — auto-random,
+  auto-loss, or does the clock just... wait?
+- `OPEN`: how does a 10-second window interact with the existing 30-second
+  reclaim-idle-gate if someone's connection drops mid-pick?
+- Copy: "the language of this has to be interesting" (user's words) — needs
+  its own pass in the established voice (name people not seats, tension not
+  jokes — see this file's Decided section), not reused wholesale from
+  elsewhere.
+- Iconography: rock/paper/scissors need a visual treatment that fits Dusk
+  Velvet — simple glyphs (the way suits are unicode today) vs. custom SVG,
+  undecided.
+
+## 5. Winner-controlled shuffle & deal, with animation
+
+Added 2026-09-01. Depends on item 4 landing first — "winner" only exists
+once RPS resolves, and the two were described together as one phase by the
+user. The RPS winner gets an explicit action to shuffle and deal, rather
+than it happening invisibly at room creation (today's behavior — see item
+4's note on `DealService.createGame()`). Animation explicitly deferred by
+the user ("animations can be discussed") — not a blocker on queuing this,
+just not designed yet.
+
+`OPEN`: does "option of shuffle & distribute" mean the winner picks between
+more than one way to do it, or simply that this player — not the other —
+is the one who triggers a single deal action? Changes the scope of the UI
+meaningfully; worth asking directly when this is picked up rather than
+assuming either way.
+
 ## Blocked / needs more discussion
 
 *(nothing blocked — item 3 needs design, but nothing is waiting on an
