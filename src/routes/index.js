@@ -32,6 +32,7 @@ router.get('/games/:id/me', GameController.getSeatView);
 router.get('/games/:id/me/hand', GameController.getHand);
 router.get('/games/:id/me/legal-actions', GameController.getLegalActions);
 router.get('/games/:id/me/attack-preview', GameController.previewAttack);
+router.get('/games/:id/me/log', GameController.getPlayerLog);  // end-of-game log; 409 until finished
 router.get('/games/:id/challenge', ChallengeController.current);
 
 // ---- open reads (no card information) -------------------------------------

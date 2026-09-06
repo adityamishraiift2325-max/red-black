@@ -2,6 +2,8 @@
 // the opponent's cards" is enforced in one place.
 
 const { loadGame, repo, db } = require('./GameContext');
+const { Hand } = require('../models/Hand');
+const { IllegalMoveError } = require('./errors');
 const ChallengeService = require('./ChallengeService');
 
 /** The per-seat game view — what a player's screen renders from. */
@@ -146,7 +148,104 @@ async function openingDeal(gameId) {
     return rows.map((r) => ({ seat: r.seat, cards: Object.keys(JSON.parse(r.hand_json)) }));
 }
 
+/**
+ * Turns one raw event row into a plain-text narrative sentence, from `seat`'s
+ * point of view ("you" vs the opponent's name). This is the ONLY place that
+ * reads event_type/payload_json for the player-facing log — the response
+ * playerLog() returns carries just these finished sentences, never the raw
+ * event shape, so a client inspecting the response cannot learn engine/event
+ * internals (docs/BACKLOG.md item 1's explicit requirement).
+ *
+ * Deliberately mirrors describeEvent() in public/actions.js (same voice, same
+ * cases) rather than sharing a module with it — this app has no build step,
+ * and that client copy is ESM while this is CommonJS. Keep the two in sync by
+ * hand if a new event type is added; see docs/BACKLOG.md standard #13.
+ *
+ * A card id left in the text (e.g. "9D") is plain text, not markup — the
+ * client re-uses the existing prettyCard() regex helper to colour it, so this
+ * function never has to know about HTML.
+ */
+function narrate(e, viewerSeat, names) {
+    const p = e.payload || {};
+    const who = (s) => (s === viewerSeat ? 'You' : (names[s] || 'Opponent'));
+    switch (e.type) {
+        case 'game_created':        return `${who(p.hostSeat)} created the room.`;
+        case 'player_joined':       return `${p.name} joined. Game on.`;
+        case 'player_reclaimed':    return `${who(p.seat)} reconnected.`;
+        case 'game_started':        return 'Cards dealt. 6 each.';
+        case 'burn_draw':           return `${who(p.player)} burned a card and drew.`;
+        case 'swap_executed':       return `${who(p.initiator)} forced a swap: ${p.gave} out, ${p.received} in.`;
+        // The demanded colour only — never the card itself. Even from the
+        // challenger's own end-of-game log: docs/DECISIONS.md says a declined
+        // challenge card "stays hidden forever," and the stored payload for
+        // this event never carries it in the first place (see gameEngine.js),
+        // so there is nothing to withhold here beyond what's already true.
+        case 'challenge_declared':
+            return `${who(p.challenger)} challenged with a ${p.challengeCardType} card — demanding the highest ${p.requiredType}.`;
+        case 'challenge_resolved':
+            return `Revealed: ${p.challengerCard} vs ${p.defenderCard}` +
+                   (p.tie ? ' — a tie, so the defender takes it. ' : ' — ') +
+                   `${who(p.winner)} won the challenge.`;
+        case 'challenge_declined':
+            return `${who(p.defender)} declined without looking and forfeited ${p.surrenderedCard}.`;
+        case 'challenge_auto_surrender':
+            return `${who(p.defender)} held no ${p.requiredType} card — ${p.surrenderedCard} surrendered outright.`;
+        case 'giveback':            return `${who(p.winner)} handed back ${p.given}.`;
+        case 'attack':
+            return `${who(p.attacker)} attacked — offense ${p.offenseTotal} vs defense ${p.defenseTotal}. ` +
+                   `${who(p.winner)} won.`;
+        case 'round_cap_resolved':
+            return `Neither of you attacked — the ${p.maxPrepTurns}-turn limit settled it. ` +
+                   `${who(p.winner)} won${p.tie ? ' on the tie-break' : ''}.`;
+        default: return null; // an event type this narrator doesn't know yet — see comment above
+    }
+}
+
+/**
+ * The player-facing end-of-game log (docs/BACKLOG.md item 1). Available only
+ * once the game is over — see docs/DECISIONS.md § Player-log vs admin-log
+ * segregation for why this is a purpose-built read rather than the admin
+ * inspector filtered down: it never returns function/service/table names or
+ * a raw event payload, only narrated sentences and the viewer's own cards.
+ */
+async function playerLog(gameId, seat) {
+    const game = await loadGame(gameId);
+    if (!game.isFinished()) {
+        throw new IllegalMoveError('The game log is available once the game ends.');
+    }
+    const s = Number(seat);
+    const names = { 0: game.seatRows[0].player_name, 1: game.seatRows[1].player_name };
+
+    // events() already filters to what this seat may see — today every event
+    // is written 'public' (see gameRepo.js), so this includes both players'
+    // moves; the OPEN backlog question ("your moves only, or the opponent's
+    // public actions too") is resolved here as "both", matching a two-player
+    // narrative and requiring no plumbing change either way if that's revisited.
+    const raw = await events(gameId, s);
+    const entries = raw
+        .map((e) => ({ seq: e.seq, at: e.at, actorSeat: e.actorSeat,
+                       isYou: e.actorSeat === s, text: narrate(e, s, names) }))
+        .filter((e) => e.text !== null);
+
+    const openingRow = await db.get(
+        `SELECT hand_json FROM initial_deals WHERE game_id=? AND seat=?`, [gameId, s]);
+
+    return {
+        gameId: game.id,
+        you: s,
+        yourName: names[s],
+        opponentName: names[game.opponentOf(s)],
+        youWon: game.winnerSeat === s,
+        entries,
+        // Only ever the viewer's own cards — the opponent's opening/closing
+        // hand is not this endpoint's business; the result screen's existing
+        // finalReveal already covers "what they were holding" separately.
+        yourOpeningHand: openingRow ? Hand.fromJson(openingRow.hand_json).visible() : [],
+        yourClosingHand: game.handOf(s).visible(),
+    };
+}
+
 module.exports = {
     forSeat, lobbyStatus, fullState, handFor, legalActions, pending,
-    events, turns, openingDeal,
+    events, turns, openingDeal, playerLog,
 };

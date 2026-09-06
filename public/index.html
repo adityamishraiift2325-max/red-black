@@ -183,6 +183,29 @@
   </div>
 </div>
 
+<!-- ── End-of-game log (backlog item 1) ─────────────────────
+     Only ever the viewer's own two hands and a narrated sentence per event —
+     see /me/log and showGameLog() in dialogs.js. Never the admin inspector. -->
+<div class="overlay" id="logOverlay" hidden>
+  <div class="result-card wide log-card">
+    <div class="result-title" id="logTitle">Your game</div>
+    <div class="log-hands">
+      <div>
+        <div class="reveal-label">You started with</div>
+        <div class="hand small" id="logOpening"></div>
+      </div>
+      <div>
+        <div class="reveal-label">You ended with</div>
+        <div class="hand small" id="logClosing"></div>
+      </div>
+    </div>
+    <ul class="log-feed" id="logFeed"></ul>
+    <div class="result-actions">
+      <button class="primary" id="logCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 
 <script type="module" src="main.js"></script>

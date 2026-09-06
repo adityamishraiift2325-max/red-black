@@ -27,19 +27,7 @@ narrate the machinery · tension not jokes.
 
 ---
 
-## 1. Player-facing end-of-game log
-
-A curated personal history at game end — what cards *you* played, how *your*
-hand changed. Deliberately a new purpose-built read (seat-scoped via the
-existing bearer-token pattern), NOT the admin inspector filtered down, so a
-future edit to the rich admin dump can't accidentally widen what a player
-sees. Never exposes function/service names, table/column names, or raw event
-payloads. → `docs/DECISIONS.md` § Player-log vs admin-log segregation
-
-`OPEN`: does it include the opponent's public actions too (a two-player
-narrative naturally has two sides), or strictly the viewer's own moves?
-
-## 2. Jack is Joker
+## 1. Jack is Joker
 
 Wildcard colour/value mechanic, colour-selection prompt on the owner whenever
 a Joker is drawn into any action. Confirmed; 3 minor implementation-detail
@@ -47,7 +35,7 @@ assumptions flagged (do declarations persist across turns, is committing
 optional at attack time, how the round cap resolves Joker commitment with no
 single declaring player). → `docs/DECISIONS.md` § Jack is Joker
 
-## 3. Tips and tricks (post-game coaching)
+## 2. Tips and tricks (post-game coaching)
 
 "What could this player have done better." Still the least specified item —
 needs a real design pass before it's buildable: undefined what makes a
@@ -56,7 +44,7 @@ that would have satisfied a later swap demand," vs. something requiring
 exploration of alternate lines of play, which is a materially bigger
 problem). No design work done yet.
 
-## 4. Rock-paper-scissors opener — winner moves first
+## 3. Rock-paper-scissors opener — winner moves first
 
 Added 2026-09-01. Both players get 10 seconds to pick rock, paper or
 scissors; the system compares picks once both are in (or time's up) and the
@@ -71,7 +59,7 @@ one call, and `DealService.createGame()` invokes it immediately when the
 host creates the room — before the second player has even joined. Moving
 "who starts" to an RPS outcome means splitting that: an empty/undealt game
 state at creation, with the actual shuffle+deal deferred until after RPS
-resolves (this is also exactly what item 5 needs — the winner triggering
+resolves (this is also exactly what item 4 needs — the winner triggering
 the deal explicitly). `startingPlayer` also already feeds the round-cap
 tie-break rule (`other(state.startingPlayer)` — ties go to whoever didn't
 start, see `docs/DECISIONS.md` § Round cap). Whatever RPS produces needs to
@@ -98,13 +86,13 @@ Open questions worth settling before building, not guessing:
   Velvet — simple glyphs (the way suits are unicode today) vs. custom SVG,
   undecided.
 
-## 5. Winner-controlled shuffle & deal, with animation
+## 4. Winner-controlled shuffle & deal, with animation
 
-Added 2026-09-01. Depends on item 4 landing first — "winner" only exists
+Added 2026-09-01. Depends on item 3 landing first — "winner" only exists
 once RPS resolves, and the two were described together as one phase by the
 user. The RPS winner gets an explicit action to shuffle and deal, rather
 than it happening invisibly at room creation (today's behavior — see item
-4's note on `DealService.createGame()`). Animation explicitly deferred by
+3's note on `DealService.createGame()`). Animation explicitly deferred by
 the user ("animations can be discussed") — not a blocker on queuing this,
 just not designed yet.
 
@@ -116,11 +104,34 @@ assuming either way.
 
 ## Blocked / needs more discussion
 
-*(nothing blocked — item 3 needs design, but nothing is waiting on an
+*(nothing blocked — item 2 needs design, but nothing is waiting on an
 external dependency)*
 
 ## Shipped
 
+- **Player-facing end-of-game log** — a `GET /me/log` endpoint (409 until the
+  game is `finished`, seat-auth like every other `/me/*` route) returns
+  narrated sentences (never raw `event_type`/`payload_json`) plus the
+  viewer's own opening and closing hand. Resolved the item's own `OPEN`
+  question as "both players' public actions" — a two-player narrative reads
+  as one story, and every event is written `public` today regardless. Found
+  along the way: the "See how it went" button already existed in the result
+  screen but opened `/dev.html` — the unauthenticated admin inspector,
+  showing the opponent's full hand including hidden bluffed cards, to any
+  real player who clicked it. Rewired to the new log instead of adding a
+  second surface. Server-side narration deliberately duplicates (does not
+  import) the client's `describeEvent()` in `actions.js` — no build step in
+  this app to share an ESM/CommonJS module — flagged so the two are kept in
+  sync by hand if a new event type is ever added. Declined-challenge cards
+  stay unrevealed even to the challenger's own log, matching
+  `docs/DECISIONS.md` literally ("hidden forever") — the stored event payload
+  never carried that card's value in the first place, so this needed no new
+  redaction, only not adding one. Unit tests pass unchanged (26/26); live-
+  verified against a running local server end-to-end (game to completion via
+  the real HTTP API, both seats' `/me/log` responses inspected, the 409/401
+  guards on an unfinished game and a missing token both confirmed) and in an
+  actual browser (the result screen's "See how it went" opening the new
+  overlay with correct card art and per-viewer narration, not a new tab).
 - Region pinning fix — function and Turso DB both in `bom1` (2026-08-29)
 - Client-error reporting — `client_errors` table, `/dev.html` panel (2026-08-29)
 - `CLAUDE.md` engineering standards + this backlog + `DECISIONS.md` (2026-08-29)

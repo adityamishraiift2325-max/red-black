@@ -6,7 +6,7 @@ import { state, $, saveSession, loadSession, clearSession } from './state.js';
 import { api, reportClientError } from './api.js';
 import {
   toast, askName, closeDrawer, showWaitRoom, stopWaitRoomPoll, closeAttackConfirm,
-  cancelAutoRedirect,
+  cancelAutoRedirect, showGameLog, closeGameLog,
 } from './dialogs.js';
 import { act, enterTable } from './actions.js';
 
@@ -76,8 +76,9 @@ $('backBtn').onclick = () => {
 
 $('reviewBtn').onclick = () => {
   cancelAutoRedirect(); // they chose to look closer, not leave — don't yank them away mid-review
-  window.open(`/dev.html#${state.gameId}`, '_blank');
+  showGameLog();
 };
+$('logCloseBtn').onclick = closeGameLog;
 
 $('againBtn').onclick = () => {
   cancelAutoRedirect(); // no-op if the clock already fired and called this itself

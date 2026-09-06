@@ -398,6 +398,18 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
 .reveal-totals { margin-top: 12px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .reveal-totals b { color: var(--ink); }
 
+/* ── end-of-game log (backlog item 1) ─────────────────── */
+.log-card { max-height: 84vh; display: flex; flex-direction: column; }
+.log-hands { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-top: 1px solid var(--line);
+             border-bottom: 1px solid var(--line); padding: 20px 0; margin-bottom: 16px; }
+.log-feed { list-style: none; margin: 0 0 20px; padding: 0; overflow-y: auto; text-align: left;
+            display: flex; flex-direction: column; gap: 7px; }
+.log-feed li { font-size: 13px; line-height: 1.55; padding: 9px 12px; border-radius: 10px;
+               background: rgba(255,255,255,.04); border-left: 2px solid var(--line); color: var(--muted); }
+/* Your own moves get the accent border, same visual language as the live feed's "you" cues. */
+.log-feed li.you { border-left-color: var(--apricot); color: var(--ink); }
+.log-feed .log-note { text-align: center; font-style: italic; }
+
 /* ── attack confirmation ─────────────────────────────── */
 .confirm-card {
   background: var(--panel-solid); border: 1px solid var(--line); border-radius: 24px;

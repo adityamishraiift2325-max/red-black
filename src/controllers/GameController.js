@@ -73,6 +73,10 @@ const previewAttack = handle(async (req, res) => {
 
 const getEvents = handle(async (req, res) =>
     res.json(await ViewService.events(req.params.id, req.query.seat ?? null)));
+const getPlayerLog = handle(async (req, res) => {
+    const seat = await callerSeat(req);
+    res.json(await ViewService.playerLog(req.params.id, seat));
+});
 const getPending = handle(async (req, res) =>
     res.json({ pending: await ViewService.pending(req.params.id) }));
 const getTurns = handle(async (req, res) => res.json(await ViewService.turns(req.params.id)));
@@ -104,7 +108,7 @@ const attack = handle(async (req, res) => {
 module.exports = {
     create, join, lobby,
     getState, getSeatView, getHand, getLegalActions, getPending,
-    getEvents, getTurns, getOpeningDeal, previewAttack,
+    getEvents, getTurns, getOpeningDeal, getPlayerLog, previewAttack,
     burn, swap, attack,
     tokenOf, callerSeat, handle,
 };

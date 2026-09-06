@@ -3,7 +3,7 @@
 
 import { state, $ } from './state.js';
 import { api } from './api.js';
-import { cardEl } from './cards.js';
+import { cardEl, prettyCard } from './cards.js';
 // Circular import, deliberate — see cards.js's note. enterTable is only
 // called inside a setInterval callback in showWaitRoom, never at module
 // load, so this is safe under ES module circular-import semantics.
@@ -199,3 +199,40 @@ export function cancelAutoRedirect() {
   const label = $('autoRedirect');
   if (label) label.textContent = '';
 }
+
+/* ── end-of-game log (backlog item 1) ────────────────────
+   "See how it went" used to open /dev.html — the unauthenticated admin
+   inspector, showing the opponent's full hand and hidden bluffed cards. This
+   replaces that with the actual player-facing log: /me/log already returns
+   nothing but narrated sentences and the viewer's own two hands, so there is
+   no redaction work left to do client-side — it's just rendering. */
+export async function showGameLog() {
+  $('logOverlay').hidden = false;
+  $('logTitle').textContent = 'Your game';
+  $('logFeed').innerHTML = '<li class="log-note">Loading…</li>';
+  $('logOpening').innerHTML = '';
+  $('logClosing').innerHTML = '';
+  try {
+    const log = await api('GET', `/games/${state.gameId}/me/log`);
+    $('logTitle').textContent = log.youWon ? 'Called it' : 'Not this time';
+    log.yourOpeningHand.forEach((c) => $('logOpening').appendChild(cardEl(c)));
+    log.yourClosingHand.forEach((c) => $('logClosing').appendChild(cardEl(c)));
+    const feed = $('logFeed');
+    feed.innerHTML = '';
+    if (!log.entries.length) {
+      feed.innerHTML = '<li class="log-note">Nothing recorded for this game.</li>';
+    }
+    log.entries.forEach((e) => {
+      const li = document.createElement('li');
+      li.className = e.isYou ? 'you' : '';
+      // prettyCard() colours any plain card-id token (e.g. "9D") it finds in
+      // the sentence — the same helper the live in-game feed already uses,
+      // reused here rather than duplicated.
+      li.innerHTML = prettyCard(e.text);
+      feed.appendChild(li);
+    });
+  } catch (e) {
+    $('logFeed').innerHTML = `<li class="log-note">Could not load the log: ${e.message}</li>`;
+  }
+}
+export const closeGameLog = () => { $('logOverlay').hidden = true; };
