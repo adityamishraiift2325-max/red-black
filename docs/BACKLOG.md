@@ -136,7 +136,12 @@ external dependency)*
   unfinished game and a missing token both confirmed) and in an actual
   browser (the result screen's "See how it went" opening the new overlay
   with correct card art, acquired tags, and per-viewer narration, not a new
-  tab).
+  tab). Also carries the same margin/claim the result screen shows ("Aditya
+  had the better offense — +20"), oriented per viewer and reusing the exact
+  `attacks`-table computation `finalRevealFor` already does — added because
+  the log is meant to stand on its own even if a player dismissed or never
+  looked at the result screen; hidden on a round-cap tie, same as there,
+  since there's no magnitude to lead with when a tie-break rule decided it.
 - Region pinning fix — function and Turso DB both in `bom1` (2026-08-29)
 - Client-error reporting — `client_errors` table, `/dev.html` panel (2026-08-29)
 - `CLAUDE.md` engineering standards + this backlog + `DECISIONS.md` (2026-08-29)

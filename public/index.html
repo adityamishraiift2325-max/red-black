@@ -189,6 +189,14 @@
 <div class="overlay" id="logOverlay" hidden>
   <div class="result-card wide log-card">
     <div class="result-title" id="logTitle">Your game</div>
+    <!-- Same margin data as the result screen's callout — shown again here so
+         the log stands on its own if the result screen was dismissed. Hidden
+         on a round-cap tie, same as there: no magnitude when a tie-break RULE
+         decided it. See resultMargin() in ViewService.js. -->
+    <div class="margin-callout" id="logMarginCallout" hidden>
+      <div class="margin-claim" id="logMarginClaim"></div>
+      <div class="margin-num" id="logMarginNum"></div>
+    </div>
     <div class="log-hand-block">
       <div class="reveal-label">Your hand</div>
       <div class="hand small log-hand" id="logHand"></div>

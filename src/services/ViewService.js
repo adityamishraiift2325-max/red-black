@@ -201,6 +201,33 @@ function narrate(e, viewerSeat, names) {
 }
 
 /**
+ * The same margin/claim the result screen shows (see showResult() in
+ * public/dialogs.js) — reused here so the log is self-contained even for a
+ * player who dismissed or never saw the result screen. Returns ready-made
+ * display fields (a claim sentence + a magnitude), not the raw attacker/
+ * winner seats, for the same reason narrate() returns sentences rather than
+ * event shapes: this endpoint's contract is "no internals to interpret."
+ *
+ * `null` on a round-cap TIE, same as the result screen's own callout — there
+ * is no magnitude to lead with when a tie-break RULE decided it, not a
+ * number.
+ */
+function resultMargin(atk, seat, opponentName) {
+    if (!atk) return null;
+    const wonByYou = atk.winner_seat === seat;
+    if ((atk.resolution_kind || 'declared') === 'round_cap') {
+        if (atk.was_tie) return null;
+        const netMargin = seat === 0 ? atk.net_margin : -atk.net_margin;
+        return { claim: `${wonByYou ? 'You' : opponentName} had the better hand`,
+                 magnitude: Math.abs(netMargin) };
+    }
+    const attackerWon = atk.winner_seat === atk.attacker_seat;
+    const stat = attackerWon ? 'offense' : 'defense';
+    return { claim: `${wonByYou ? 'You' : opponentName} had the better ${stat}`,
+             magnitude: Math.abs(atk.offense_total - atk.defense_total) };
+}
+
+/**
  * The player-facing end-of-game log (docs/BACKLOG.md item 1). Available only
  * once the game is over — see docs/DECISIONS.md § Player-log vs admin-log
  * segregation for why this is a purpose-built read rather than the admin
@@ -226,12 +253,17 @@ async function playerLog(gameId, seat) {
                        isYou: e.actorSeat === s, text: narrate(e, s, names) }))
         .filter((e) => e.text !== null);
 
+    const opponentName = names[game.opponentOf(s)];
+    const atk = await db.get(
+        `SELECT * FROM attacks WHERE game_id=? ORDER BY turn_id DESC LIMIT 1`, [gameId]);
+
     return {
         gameId: game.id,
         you: s,
         yourName: names[s],
-        opponentName: names[game.opponentOf(s)],
+        opponentName,
         youWon: game.winnerSeat === s,
+        result: resultMargin(atk, s, opponentName),
         entries,
         // Only ever the viewer's own hand — the opponent's is not this
         // endpoint's business; the result screen's existing finalReveal

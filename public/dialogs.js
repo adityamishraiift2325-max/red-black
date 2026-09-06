@@ -218,11 +218,18 @@ const ACQUIRED_LABEL = {
 export async function showGameLog() {
   $('logOverlay').hidden = false;
   $('logTitle').textContent = 'Your game';
+  $('logMarginCallout').hidden = true; // reset; re-shown below if this game had one
   $('logFeed').innerHTML = '<li class="log-note">Loading…</li>';
   $('logHand').innerHTML = '';
   try {
     const log = await api('GET', `/games/${state.gameId}/me/log`);
     $('logTitle').textContent = log.youWon ? 'Called it' : 'Not this time';
+    if (log.result) {
+      $('logMarginCallout').hidden = false;
+      $('logMarginClaim').textContent = log.result.claim;
+      $('logMarginNum').textContent = `+${log.result.magnitude}`;
+      $('logMarginNum').className = 'margin-num ' + (log.youWon ? 'win' : 'lose');
+    }
     log.yourClosingHand.forEach((c) => {
       const wrap = document.createElement('div');
       wrap.className = 'log-card-wrap';
