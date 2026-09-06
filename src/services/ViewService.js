@@ -2,7 +2,6 @@
 // the opponent's cards" is enforced in one place.
 
 const { loadGame, repo, db } = require('./GameContext');
-const { Hand } = require('../models/Hand');
 const { IllegalMoveError } = require('./errors');
 const ChallengeService = require('./ChallengeService');
 
@@ -227,9 +226,6 @@ async function playerLog(gameId, seat) {
                        isYou: e.actorSeat === s, text: narrate(e, s, names) }))
         .filter((e) => e.text !== null);
 
-    const openingRow = await db.get(
-        `SELECT hand_json FROM initial_deals WHERE game_id=? AND seat=?`, [gameId, s]);
-
     return {
         gameId: game.id,
         you: s,
@@ -237,10 +233,15 @@ async function playerLog(gameId, seat) {
         opponentName: names[game.opponentOf(s)],
         youWon: game.winnerSeat === s,
         entries,
-        // Only ever the viewer's own cards — the opponent's opening/closing
-        // hand is not this endpoint's business; the result screen's existing
-        // finalReveal already covers "what they were holding" separately.
-        yourOpeningHand: openingRow ? Hand.fromJson(openingRow.hand_json).visible() : [],
+        // Only ever the viewer's own hand — the opponent's is not this
+        // endpoint's business; the result screen's existing finalReveal
+        // already covers "what they were holding" separately.
+        //
+        // Just the closing hand, not opening-vs-closing side by side: a
+        // side-by-side comparison made the player do the diffing themselves.
+        // Each card already carries its own `acquired` provenance (deal /
+        // draw / swap / challenge — see Hand.js), so tagging each card in
+        // the one hand tells the "how it changed" story directly.
         yourClosingHand: game.handOf(s).visible(),
     };
 }

@@ -112,26 +112,31 @@ external dependency)*
 - **Player-facing end-of-game log** — a `GET /me/log` endpoint (409 until the
   game is `finished`, seat-auth like every other `/me/*` route) returns
   narrated sentences (never raw `event_type`/`payload_json`) plus the
-  viewer's own opening and closing hand. Resolved the item's own `OPEN`
-  question as "both players' public actions" — a two-player narrative reads
-  as one story, and every event is written `public` today regardless. Found
-  along the way: the "See how it went" button already existed in the result
-  screen but opened `/dev.html` — the unauthenticated admin inspector,
-  showing the opponent's full hand including hidden bluffed cards, to any
-  real player who clicked it. Rewired to the new log instead of adding a
-  second surface. Server-side narration deliberately duplicates (does not
-  import) the client's `describeEvent()` in `actions.js` — no build step in
-  this app to share an ESM/CommonJS module — flagged so the two are kept in
-  sync by hand if a new event type is ever added. Declined-challenge cards
-  stay unrevealed even to the challenger's own log, matching
-  `docs/DECISIONS.md` literally ("hidden forever") — the stored event payload
-  never carried that card's value in the first place, so this needed no new
-  redaction, only not adding one. Unit tests pass unchanged (26/26); live-
-  verified against a running local server end-to-end (game to completion via
-  the real HTTP API, both seats' `/me/log` responses inspected, the 409/401
-  guards on an unfinished game and a missing token both confirmed) and in an
-  actual browser (the result screen's "See how it went" opening the new
-  overlay with correct card art and per-viewer narration, not a new tab).
+  viewer's own closing hand, each card tagged with how it arrived (dealt /
+  drawn / swapped in / won in a challenge, from the `acquired` provenance
+  already stored per card) — not an opening-vs-closing side-by-side, which
+  only made the player do the diffing themselves; one tagged hand tells the
+  "how it changed" story directly. Resolved the item's own `OPEN` question as
+  "both players' public actions" — a two-player narrative reads as one
+  story, and every event is written `public` today regardless. Found along
+  the way: the "See how it went" button already existed in the result screen
+  but opened `/dev.html` — the unauthenticated admin inspector, showing the
+  opponent's full hand including hidden bluffed cards, to any real player
+  who clicked it. Rewired to the new log instead of adding a second surface.
+  Server-side narration deliberately duplicates (does not import) the
+  client's `describeEvent()` in `actions.js` — no build step in this app to
+  share an ESM/CommonJS module — flagged so the two are kept in sync by hand
+  if a new event type is ever added. Declined-challenge cards stay
+  unrevealed even to the challenger's own log, matching `docs/DECISIONS.md`
+  literally ("hidden forever") — the stored event payload never carried that
+  card's value in the first place, so this needed no new redaction, only not
+  adding one. Unit tests pass unchanged (26/26); live-verified against a
+  running local server end-to-end (game to completion via the real HTTP API,
+  both seats' `/me/log` responses inspected, the 409/401 guards on an
+  unfinished game and a missing token both confirmed) and in an actual
+  browser (the result screen's "See how it went" opening the new overlay
+  with correct card art, acquired tags, and per-viewer narration, not a new
+  tab).
 - Region pinning fix — function and Turso DB both in `bom1` (2026-08-29)
 - Client-error reporting — `client_errors` table, `/dev.html` panel (2026-08-29)
 - `CLAUDE.md` engineering standards + this backlog + `DECISIONS.md` (2026-08-29)

@@ -400,8 +400,13 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
 
 /* ── end-of-game log (backlog item 1) ─────────────────── */
 .log-card { max-height: 84vh; display: flex; flex-direction: column; }
-.log-hands { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-top: 1px solid var(--line);
-             border-bottom: 1px solid var(--line); padding: 20px 0; margin-bottom: 16px; }
+.log-hand-block { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+                  padding: 20px 0; margin-bottom: 16px; }
+/* One hand, each card tagged with how it got there — not two hands to
+   diff by eye (that's what this replaced; see docs/BACKLOG.md item 1). */
+.log-hand { gap: 14px 10px; }
+.log-card-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.log-card-tag { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .log-feed { list-style: none; margin: 0 0 20px; padding: 0; overflow-y: auto; text-align: left;
             display: flex; flex-direction: column; gap: 7px; }
 .log-feed li { font-size: 13px; line-height: 1.55; padding: 9px 12px; border-radius: 10px;

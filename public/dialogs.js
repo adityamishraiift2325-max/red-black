@@ -204,19 +204,35 @@ export function cancelAutoRedirect() {
    "See how it went" used to open /dev.html — the unauthenticated admin
    inspector, showing the opponent's full hand and hidden bluffed cards. This
    replaces that with the actual player-facing log: /me/log already returns
-   nothing but narrated sentences and the viewer's own two hands, so there is
-   no redaction work left to do client-side — it's just rendering. */
+   nothing but narrated sentences and the viewer's own closing hand, so there
+   is no redaction work left to do client-side — it's just rendering. */
+
+// How each acquired-provenance tag reads to a player — see Hand.js for the
+// four values this can be. Deliberately not just the raw tag: "challenge"
+// alone doesn't say the card was WON, and a player reading their own log
+// shouldn't have to infer that.
+const ACQUIRED_LABEL = {
+  deal: 'Dealt', draw: 'Drawn', swap: 'Swapped in', challenge: 'Won in a challenge',
+};
+
 export async function showGameLog() {
   $('logOverlay').hidden = false;
   $('logTitle').textContent = 'Your game';
   $('logFeed').innerHTML = '<li class="log-note">Loading…</li>';
-  $('logOpening').innerHTML = '';
-  $('logClosing').innerHTML = '';
+  $('logHand').innerHTML = '';
   try {
     const log = await api('GET', `/games/${state.gameId}/me/log`);
     $('logTitle').textContent = log.youWon ? 'Called it' : 'Not this time';
-    log.yourOpeningHand.forEach((c) => $('logOpening').appendChild(cardEl(c)));
-    log.yourClosingHand.forEach((c) => $('logClosing').appendChild(cardEl(c)));
+    log.yourClosingHand.forEach((c) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'log-card-wrap';
+      wrap.appendChild(cardEl(c));
+      const tag = document.createElement('div');
+      tag.className = 'log-card-tag';
+      tag.textContent = ACQUIRED_LABEL[c.acquired] || c.acquired;
+      wrap.appendChild(tag);
+      $('logHand').appendChild(wrap);
+    });
     const feed = $('logFeed');
     feed.innerHTML = '';
     if (!log.entries.length) {
